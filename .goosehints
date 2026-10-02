@@ -1,0 +1,106 @@
+# Projeto: Roteamento por Inundação (Redes de Computadores II, UESB)
+
+## Contexto
+Trabalho acadêmico. Implementar 4 versões de roteamento por inundação com GUI em JavaFX e
+medir quantos pacotes são gerados até o destino ser atingido, por versão.
+  Versão 1: cada pacote que chega é enviado por TODAS as interfaces do roteador.
+  Versão 2: igual à 1, EXCETO pela interface de chegada.
+  Versão 3: igual à 2, mais verificação/decremento de TTL.
+  Versão 4: igual à 3, mais uma otimização do aluno. FICA COMO STUB (delega à Versão 3,
+            com TODO claro). NÃO invente a otimização.
+
+## Modo de trabalho
+- Trabalho por marcos (ver seção Marcos). Execute SOMENTE o marco que eu pedir.
+- Dentro de um marco, trabalhe com autonomia e escreva o plano em até 5 linhas antes.
+- Pare e pergunte apenas para: instalar pacotes (sudo/pacman), apagar arquivos fora do
+  projeto, ou mudança de arquitetura.
+- Ao fim de cada marco: compile, rode o que for possível, faça `git commit -m "Marco N"`,
+  e resuma em poucas linhas o que foi feito, como executar e o que ficou pendente.
+- Não escreva testes automatizados com valores esperados; os testes serão feitos depois.
+- Código novo: identificadores em inglês, comentários em português. Sem dependências externas.
+
+## Ambiente e build
+- Alvo final: JDK 1.8 com JavaFX embutido (PCs da faculdade). Máquina de desenvolvimento:
+  WSL2 com Arch, JDK mais novo + OpenJFX do pacman.
+- Sem Maven/Gradle. Apenas build.sh e run.sh na raiz, que funcionam nos dois cenários:
+  * Se `javac -version` for 1.8: compilar e executar direto.
+  * Senão: compilar com `--release 8` (se não funcionar com as jars do JavaFX, usar
+    `-source 8 -target 8`) com as jars do JavaFX no classpath; executar com
+    `--module-path "$JAVAFX_LIB" --add-modules javafx.controls,javafx.graphics`.
+  * `JAVAFX_LIB` vem de variável de ambiente ou de autodetecção; nenhum caminho fixo.
+- Código: apenas recursos do Java 8. Proibido: var, records, List.of/Map.of, text blocks,
+  switch expressions, String.isBlank/strip/repeat, Optional.isEmpty, module-info.java.
+- JavaFX: apenas APIs clássicas do JavaFX 8 (Pane, Circle, Line, Label, Button, ComboBox,
+  Spinner, Slider, CheckBox, TableView, MenuBar, Alert, AnimationTimer, Task). Evite
+  qualquer API introduzida depois do JavaFX 8, pois o código roda em JavaFX 8 na faculdade.
+- Pacote raiz: `flooding`. Main class: `flooding.ui.FloodingApp`.
+
+## Arquivo backbone.txt (raiz do projeto)
+- 1ª linha: número de nós, possivelmente com ';' final (ex.: "8;"): faça trim e remova o ';'.
+- Demais linhas: NO1;NO2;PESO. Aresta não direcionada, listada uma única vez.
+- Ignore linhas em branco e espaços. Valide ids em [1..N]. Em caso de erro, mensagem clara.
+- Rótulos na GUI: 1->A, 2->B, ... (nós numéricos internamente).
+- Crie um backbone.txt de exemplo (grafo do Tanenbaum) com exatamente:
+  8;  1;2;2  1;7;6  2;3;7  2;5;2  3;6;3  3;4;3  4;8;2  5;7;1  5;6;2  6;8;2  7;8;4
+  (um item por linha).
+
+## Semântica da simulação (decisões fechadas)
+- Núcleo em TEMPO VIRTUAL: fila de eventos (PriorityQueue por instante de chegada, com
+  desempate FIFO). Sem Thread.sleep e sem uma thread por pacote/roteador.
+- Cada nó tem uma lista de interfaces (links). Cada pacote carrega: id, TTL e a interface
+  pela qual chegou.
+- Início: o transmissor gera uma cópia por interface (nas 4 versões; nas 3 e 4 com TTL
+  inicial). Cada cópia colocada em um link conta como 1 pacote gerado.
+- Chegada de um pacote no nó n no instante t:
+  1) Se o link foi desabilitado enquanto o pacote estava nele: descarte.
+  2) Se n é o receptor e ainda não há snapshot: registre snapshot (contador atual, t).
+  3) Pergunte à estratégia por quais interfaces reenviar; o receptor TAMBÉM reencaminha.
+  4) Para cada cópia enviada: contador++ e chegada agendada em t + LatencyProvider.nextLatencyMs().
+- Versão 1: ignora TTL e envia por todas as interfaces. Versão 2: todas menos a de chegada.
+  Versão 3: como a 2, e antes de reenviar faz ttl = ttl - 1; se ttl <= 0, descarta (o
+  TTL máximo equivale ao número de saltos; a checagem de entrega vem antes do descarte).
+- LatencyProvider.nextLatencyMs(): inteiro em [1, 500], chamado A CADA transmissão em um
+  link. Aceita semente opcional. O peso da aresta (métrica) NÃO influencia a latência.
+- TTL padrão = diâmetro do grafo em saltos (BFS), editável na GUI.
+- Modo ao vivo (GUI): SEM limites, sem trava de segurança e sem throttling. O professor pediu
+  que a versão 1 trave; a UI travando é o comportamento esperado. Não adicione proteções.
+- A medida de interesse é o snapshot do contador na primeira chegada ao destino.
+
+## Arquitetura (pacotes sob `flooding`)
+- model: Graph, Node, Link (id, a, b, peso, enabled).
+- io: BackboneLoader.
+- sim: Packet, Simulator, ForwardingStrategy (interface), Strategy1AllInterfaces,
+  Strategy2ExceptIncoming, Strategy3Ttl, Strategy4Custom (stub), LatencyProvider,
+  RunResult, BatchRunner. Sem dependência de JavaFX.
+- Simulator: pull-based, com `advanceTo(long virtualTimeMs)` e `inFlight()` para a GUI, e
+  `runUntilFirstArrival()` para o modo em lote.
+- ui: FloodingApp, GraphPane, ControlPanel, ResultsTable, AboutDialog.
+- Utilitário: ConsoleRunner em sim (args: versão origem destino ttl semente), imprime os
+  eventos e o snapshot. Serve para depuração e testes futuros.
+
+## GUI
+- Layout do grafo automático, em círculo. Peso exibido em cada aresta.
+- ComboBox da versão (1..4), ComboBox de transmissor e de receptor, Spinner de TTL,
+  Slider de velocidade (0.25x a 10x, padrão 2x), botões Iniciar / Pausar / Resetar.
+- Animação por AnimationTimer: avança o tempo virtual, chama advanceTo e desenha cada
+  pacote em trânsito interpolado ao longo do link, com o valor do TTL ao lado (nas versões
+  1 e 2, sem TTL). Transmissor em verde, receptor em azul.
+- Contador ao vivo e o valor do snapshot na primeira chegada, em destaque.
+- Clique em uma aresta alterna habilitada/desabilitada (tracejada em vermelho quando
+  desabilitada). Links desabilitados não transmitem.
+- Tabela de resultados por versão: última execução, n, média, desvio-padrão.
+- Modo lote: "Executar N vezes" (padrão 30) em Task de fundo, sem animação, semente
+  base + i, parando na primeira chegada ou quando a fila esvaziar (destino inalcançável)
+  ou após 2.000.000 de transmissões (marcar como "abortada" e excluir da média).
+- Menu Arquivo (Recarregar backbone, Sair) e Ajuda > Sobre. O Sobre mostra a documentação
+  da Opção 4 a partir de uma constante de texto (hoje: placeholder).
+
+## Marcos
+- Marco 0: Ambiente. Detecte java/javac, localize o JavaFX, crie build.sh e run.sh e um
+  "hello world" JavaFX que abre uma janela. Relate o que falta instalar.
+- Marco 1: Modelo + loader + backbone.txt + BFS (diâmetro). Programa de console que carrega
+  e imprime o grafo, e mostra o diâmetro.
+- Marco 2: Núcleo de simulação, as 4 estratégias (4 = stub), LatencyProvider, ConsoleRunner.
+- Marco 3: GUI com grafo, controles, animação, contador e TTL.
+- Marco 4: Link desabilitável, tabela de resultados, modo lote, Sobre, ARCHITECTURE.md
+  (máx. 1 página: fluxo de um pacote) e README com instruções de execução.
