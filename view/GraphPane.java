@@ -6,6 +6,8 @@
 * Nome.............: GraphPane
 * Funcao...........: Painel JavaFX que desenha o grafo a partir do backbone,
 *                      com nos em circulo, rotulos A..H e pesos nos links.
+* Requisito: grafo inteiro deve ficar visivel dentro do viewport, sem cortes,
+*              raio calculado dinamicamente a partir do tamanho disponivel.
 *************************************************************** */
 package view;
 
@@ -28,13 +30,16 @@ import javafx.scene.text.Text;
 /**
  * Painel que desenha o grafo em circulo: nos com rotulos A..H,
 * linhas para os links e o peso escrito em cada link.
+* O grafo eh centralizado e dimensionado para caber dentro do viewport,
+* calculando o raio a partir do tamanho disponivel, deixando margem para
+* nos e rotulos. O posicionamento e responsivo a redimensionamento.
 * Clique em um link alterna estado habilitado/desabilitado
-* (tracejado vermelho quando desabilitado).
+* (cor vermelha quando desabilitado).
 */
 public class GraphPane extends Pane {
 
-    private static final double CIRCLE_RADIUS = 200;
     private static final double NODE_RADIUS = 25;
+    private static final double LABEL_OFFSET = 30; // offset do rotulo ao centro
 
     private Graph graph;
     private double[] nodeX;
@@ -48,6 +53,8 @@ public class GraphPane extends Pane {
 *************************************************************** */
 public GraphPane() {
         loadAndDrawGraph();
+        // Define tamanho preferido baseado em dimensao razoavel
+        setPrefSize(800, 600);
     }
 
     /* ***************************************************************
@@ -73,23 +80,59 @@ private void loadAndDrawGraph() {
 
     /* ***************************************************************
 * Metodo: computeLayout
-* Funcao: Posiciona os nos em circulo uniforme.
+* Funcao: Posiciona os nos em circulo uniforme, calculando raio baseado
+*         no tamanho disponivel do GraphPane.
 * Parametros: nenhum
 * Retorno: void
 *************************************************************** */
 private void computeLayout() {
         int n = graph.getNodeCount();
+        if (n <= 0) {
+            nodeX = new double[0];
+            nodeY = new double[0];
+            return;
+        }
+
+        // Calcula raio baseado no tamanho disponivel do pane com margem segura
+        double availableWidth = getWidth() > 0 ? getWidth() : 800;
+        double availableHeight = getHeight() > 0 ? getHeight() : 600;
+
+        // Margem minima: considerar diametro dos nos + espaco para rotulos
+        double minMargin = (NODE_RADIUS * 2 + LABEL_OFFSET) * 1.2;
+        double radius = Math.min(availableWidth, availableHeight) / 2.0 - minMargin;
+
+        // Garante raio minimo positivo
+        if (radius < 50) radius = 50;
+
+        double angleStep = 2 * Math.PI / n;
         nodeX = new double[n];
         nodeY = new double[n];
-        double angleStep = 2 * Math.PI / n;
+
         for (int i = 0; i < n; i++) {
-            double angle = i * angleStep - Math.PI / 2;
-            double x = CIRCLE_RADIUS * Math.cos(angle);
-            double y = CIRCLE_RADIUS * Math.sin(angle);
+            double angle = i * angleStep - Math.PI / 2; // -PI/2 para comecar no topo (12h)
+            double x = getWidth() / 2.0 + radius * Math.cos(angle);
+            double y = getHeight() / 2.0 + radius * Math.sin(angle);
             nodeX[i] = x;
             nodeY[i] = y;
-            Node node = graph.getNode(i + 1);
         }
+    }
+
+    /* ***************************************************************
+* Metodo: layoutBoundsChanged
+* Funcao: Called when the pane's layout bounds change (e.g., resize).
+*          Recalculates layout and redraws.
+* Parametros: nenhum
+* Retorno: void
+*************************************************************** */
+@Override
+protected void layoutChildren() {
+        super.layoutChildren();
+        // Recalcular posicoes se o grafo ja estiver carregado
+        if (graph != null) {
+            computeLayout();
+        }
+        drawLinks();
+        drawNodes();
     }
 
     /* ***************************************************************
@@ -161,8 +204,9 @@ private void drawNodes() {
             Text label = new Text(nodes.get(i).getLabel());
             label.setFont(Font.font(14));
             label.setFill(Color.BLACK);
+            // Posicionar rotulo levemente acima e centralizado do no
             label.setX(x - label.getLayoutBounds().getWidth() / 2);
-            label.setY(y + 5);
+            label.setY(y - NODE_RADIUS - 5); // acima do circulo
             getChildren().add(label);
         }
     }
