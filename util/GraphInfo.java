@@ -1,7 +1,16 @@
-package flooding.io;
+/* ***************************************************************
+* Autor............: Juan Prado Da Silva
+* Matricula........: 202310291
+* Inicio...........: 01/10/2026
+* Ultima alteracao.: 02/10/2026
+* Nome.............: GraphInfo.java
+* Funcao...........: Programa de console que carrega o backbone e imprime o grafo e o diametro.
+*************************************************************** */
 
-import flooding.model.Graph;
-import flooding.model.Link;
+package util;
+
+import model.Graph;
+import model.Link;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -9,7 +18,6 @@ import java.nio.file.Paths;
 /**
  * Programa de console (Marco 1): carrega o backbone, imprime o grafo
  * e o diametro em saltos.
- * Uso: java -cp build flooding.io.GraphInfo [caminho-do-backbone.txt]
  */
 public final class GraphInfo {
 

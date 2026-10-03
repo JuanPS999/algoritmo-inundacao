@@ -18,7 +18,7 @@ detect_javafx_lib() {
 
 if javac -version 2>&1 | grep -q '1\.8'; then
   echo "javac 1.8 detectado: compilando direto (JavaFX embutido)."
-  find src -name '*.java' > sources.txt
+  find . -name '*.java' -not -path '*/build/*' > sources.txt
   javac -d build @sources.txt
 else
   JAVAFX_LIB="$(detect_javafx_lib)"
@@ -27,7 +27,7 @@ else
     exit 1
   fi
   echo "javac moderno detectado; JavaFX em: $JAVAFX_LIB"
-  find src -name '*.java' > sources.txt
+  find . -name '*.java' -not -path '*/build/*' > sources.txt
   CP="$JAVAFX_LIB/javafx.base.jar:$JAVAFX_LIB/javafx.graphics.jar:$JAVAFX_LIB/javafx.controls.jar"
   if ! javac --release 8 -cp "$CP" -d build @sources.txt 2>/dev/null; then
     echo "--release 8 falhou; tentando -source 8 -target 8."

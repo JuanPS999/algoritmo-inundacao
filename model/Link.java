@@ -1,4 +1,13 @@
-package flooding.model;
+/* ***************************************************************
+* Autor............: Juan Prado Da Silva
+* Matricula........: 202310291
+* Inicio...........: 01/10/2026
+* Ultima alteracao.: 02/10/2026
+* Nome.............: Link.java
+* Funcao...........: Aresta nao direcionada entre dois nos com peso e estado habilitado.
+*************************************************************** */
+
+package model;
 
 /**
  * Aresta nao direcionada entre dois nos, com peso (metrica) e estado
@@ -12,7 +21,13 @@ public class Link {
     private final int weight;
     private boolean enabled = true;
 
-    public Link(int id, int a, int b, int weight) {
+    /* ***************************************************************
+* Metodo: Link
+* Funcao: Construtor de link com ids e peso especificados.
+* Parametros: id - identificador do link; a, b - nos conectados; weight - peso/metrica.
+* Retorno: void
+*************************************************************** */
+public Link(int id, int a, int b, int weight) {
         this.id = id;
         this.a = a;
         this.b = b;

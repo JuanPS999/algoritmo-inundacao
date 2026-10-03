@@ -1,4 +1,12 @@
-package flooding.model;
+/* ***************************************************************
+* Autor............: Juan Prado Da Silva
+* Matricula........: 202310291
+* Inicio...........: 01/10/2026
+* Ultima alteracao.: 02/10/2026
+* Nome.............: Graph
+* Funcao...........: Grafo da sub-rede: nos, links e distancia em saltos.
+*************************************************************** */
+package model;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -18,7 +26,13 @@ public class Graph {
     // adjacencia: para cada no, lista de links incidentes
     private final List<List<Link>> adjacency = new ArrayList<List<Link>>();
 
-    public Graph(int nodeCount) {
+    /* ***************************************************************
+* Metodo: Graph
+* Funcao: Construtor do grafo com o numero de nos especificado.
+* Parametros: nodeCount - numero de nos da rede.
+* Retorno: void
+*************************************************************** */
+public Graph(int nodeCount) {
         if (nodeCount < 1) {
             throw new IllegalArgumentException("Numero de nos deve ser >= 1: " + nodeCount);
         }
@@ -29,19 +43,43 @@ public class Graph {
         }
     }
 
-    public int getNodeCount() {
+    /* ***************************************************************
+* Metodo: getNodeCount
+* Funcao: Retorna o numero total de nos no grafo.
+* Parametros: nenhum
+* Retorno: int - numero de nos.
+*************************************************************** */
+public int getNodeCount() {
         return nodeCount;
     }
 
-    public List<Node> getNodes() {
+    /* ***************************************************************
+* Metodo: getNodes
+* Funcao: Retorna uma lista imutavel de nos do grafo.
+* Parametros: nenhum
+* Retorno: List<Node> - lista de nos.
+*************************************************************** */
+public List<Node> getNodes() {
         return Collections.unmodifiableList(nodes);
     }
 
-    public List<Link> getLinks() {
+    /* ***************************************************************
+* Metodo: getLinks
+* Funcao: Retorna uma lista imutavel de links do grafo.
+* Parametros: nenhum
+* Retorno: List<Link> - lista de links.
+*************************************************************** */
+public List<Link> getLinks() {
         return Collections.unmodifiableList(links);
     }
 
-    public Node getNode(int id) {
+    /* ***************************************************************
+* Metodo: getNode
+* Funcao: Retorna o no com o id especificado.
+* Parametros: id - identificador do no (1..N).
+* Retorno: Node - o no correspondente.
+*************************************************************** */
+public Node getNode(int id) {
         return nodes.get(id - 1);
     }
 
@@ -70,7 +108,7 @@ public class Graph {
         }
     }
 
-    /** Distancia em saltos (BFS) entre dois nos; -1 se inalcançavel. */
+    /** Distancia em saltos (BFS) entre dois nos; -1 se inalcancavel. */
     public int hopDistance(int from, int to) {
         int[] visited = new int[nodeCount + 1]; // 0 = nao visitado; guarda distancia+1
         Deque<Integer> queue = new ArrayDeque<Integer>();

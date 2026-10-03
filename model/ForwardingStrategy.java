@@ -1,7 +1,16 @@
-package flooding.sim;
+/* ***************************************************************
+* Autor............: Juan Prado Da Silva
+* Matricula........: 202310291
+* Inicio...........: 01/10/2026
+* Ultima alteracao.: 02/10/2026
+* Nome.............: ForwardingStrategy.java
+* Funcao...........: Interface de estrategia de reenvio de pacotes.
+*************************************************************** */
 
-import flooding.model.Graph;
-import flooding.model.Link;
+package model;
+
+import model.Graph;
+import model.Link;
 
 import java.util.List;
 

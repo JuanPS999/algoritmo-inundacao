@@ -1,6 +1,15 @@
-package flooding.io;
+/* ***************************************************************
+* Autor............: Juan Prado Da Silva
+* Matricula........: 202310291
+* Inicio...........: 01/10/2026
+* Ultima alteracao.: 02/10/2026
+* Nome.............: BackboneLoader.java
+* Funcao...........: Carrega o arquivo backbone.txt e constroi o grafo da rede.
+*************************************************************** */
 
-import flooding.model.Graph;
+package util;
+
+import model.Graph;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -11,7 +20,7 @@ import java.nio.file.Path;
 /**
  * Carrega o arquivo backbone.txt:
  *   1a linha: numero de nos (pode ter ';' final, ex.: "8;").
- *   Demais:   NO1;NO2;PESO  — aresta nao direcionada, listada uma unica vez.
+ *   Demais:   NO1;NO2;PESO  - aresta nao direcionada, listada uma unica vez.
  * Linhas em branco e espacos sao ignorados. Ids validados em [1..N].
  */
 public final class BackboneLoader {

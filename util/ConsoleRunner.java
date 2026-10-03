@@ -1,15 +1,32 @@
-package flooding.sim;
+/* ***************************************************************
+* Autor............: Juan Prado Da Silva
+* Matricula........: 202310291
+* Inicio...........: 01/10/2026
+* Ultima alteracao.: 02/10/2026
+* Nome.............: ConsoleRunner.java
+* Funcao...........: Utilitario de console para simulacao de flooding. Executa uma simulacao e imprime eventos e snapshot da primeira chegada ao destino.
+*************************************************************** */
 
-import flooding.io.BackboneLoader;
-import flooding.model.Graph;
-import flooding.model.Link;
+package util;
+
+import model.Graph;
+import model.Link;
+import model.Packet;
+import model.RunResult;
+import model.ForwardingStrategy;
+import model.LatencyProvider;
+import model.Strategy1AllInterfaces;
+import model.Strategy2ExceptIncoming;
+import model.Strategy3Ttl;
+import model.Strategy4Custom;
+import model.Simulator;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
- * Utilitario de console para depuracao e testes futuros.
- * Uso: java -cp build flooding.sim.ConsoleRunner <versao> <origem> <destino> <ttl> <semente> [backbone]
+ * Utilitario de console para simulacao de flooding.
+ * Uso: java -cp build util.ConsoleRunner <versao> <origem> <destino> <ttl> <semente> [backbone]
  * Imprime um evento por linha e o snapshot da primeira chegada ao destino.
  */
 public final class ConsoleRunner {

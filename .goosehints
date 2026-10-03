@@ -12,37 +12,51 @@ medir quantos pacotes são gerados até o destino ser atingido, por versão.
 ## Modo de trabalho
 - Trabalho por marcos (ver seção Marcos). Execute SOMENTE o marco que eu pedir.
 - Dentro de um marco, trabalhe com autonomia e escreva o plano em até 5 linhas antes.
+- Cada marco deve ser concluído integralmente antes da resposta final. Não peça
+  autorização para continuar uma funcionalidade que já pertence ao marco atual.
 - Pare e pergunte apenas para: instalar pacotes (sudo/pacman), apagar arquivos fora do
   projeto, ou mudança de arquitetura.
 - Ao fim de cada marco: compile, rode o que for possível, faça `git commit -m "Marco N"`,
   e resuma em poucas linhas o que foi feito, como executar e o que ficou pendente.
 - Não escreva testes automatizados com valores esperados; os testes serão feitos depois.
-- Código novo: identificadores em inglês, comentários em português. Sem dependências externas.
+- Sem dependências externas.
+- Execucao de processos (regra obrigatoria): testes que executam algoritmos
+  potencialmente nao terminantes devem sempre possuir timeout explicito. Um timeout
+  pode ser um resultado esperado e nao deve ser interpretado automaticamente como
+  falha. Nunca executar um cenario potencialmente nao terminante sem mecanismo para
+  interromper o processo.
+  * Use sempre: `timeout -k 2 10 java -Xmx512m -cp build ...` (codigo 124 = estourou
+    o timeout). Limite a saida com `| head -n 200`.
+  * Reporte timeouts como "timeout (esperado)" ou "timeout (inesperado)", conforme o
+    cenario. Ex.: versoes 1 e 2 rodando alem do snapshot em grafo com ciclo = esperado.
+  * NUNCA abra a GUI em primeiro plano. Para verificar que ela inicia, use
+    `timeout 8 ./run.sh`; codigo 124 sem excecao no stderr conta como sucesso.
+  * Se um processo travar, interrompa-o e siga em frente; nao fique esperando.
+- Commits intermediarios: apos cada subetapa que compila, faca
+  `git add -A && git commit -m "WIP Marco N: <subetapa>"`. No fim do marco, faca o commit
+  final "Marco N". Assim uma sessao que cai nao perde trabalho.
+- Resumo final: no maximo 8 linhas, texto simples, em portugues, sem tabelas e sem
+  markdown. Nao repita arquivos inteiros nem saidas longas; use `| head` em comandos.
 
 ## Ambiente e build
-- Alvo final: JDK 1.8 com JavaFX embutido (PCs da faculdade). Máquina de desenvolvimento:
-  WSL2 com Arch, JDK mais novo + OpenJFX do pacman.
-- Sem Maven/Gradle. Apenas build.sh e run.sh na raiz, que funcionam nos dois cenários:
-  * Se `javac -version` for 1.8: compilar e executar direto.
-  * Senão: compilar com `--release 8` (se não funcionar com as jars do JavaFX, usar
-    `-source 8 -target 8`) com as jars do JavaFX no classpath; executar com
-    `--module-path "$JAVAFX_LIB" --add-modules javafx.controls,javafx.graphics`.
-  * `JAVAFX_LIB` vem de variável de ambiente ou de autodetecção; nenhum caminho fixo.
+- JDK 1.8.0_351 com JavaFX embutido (jre/lib/ext/jfxrt.jar), o mesmo do professor.
+  Confirme `javac -version` = 1.8.x antes de compilar. Não use JDK mais novo.
+- Sem Maven/Gradle. Apenas build.sh e run.sh na raiz: build.sh compila todos os .java
+  com `javac -encoding UTF-8 -d build`; run.sh executa `java -cp build Principal`.
+  Nenhum caminho fixo.
+- Crie .gitignore com `build/` e `*.class`.
 - Código: apenas recursos do Java 8. Proibido: var, records, List.of/Map.of, text blocks,
   switch expressions, String.isBlank/strip/repeat, Optional.isEmpty, module-info.java.
-- JavaFX: apenas APIs clássicas do JavaFX 8 (Pane, Circle, Line, Label, Button, ComboBox,
-  Spinner, Slider, CheckBox, TableView, MenuBar, Alert, AnimationTimer, Task). Evite
-  qualquer API introduzida depois do JavaFX 8, pois o código roda em JavaFX 8 na faculdade.
-- Pacote raiz: `flooding`. Main class: `flooding.ui.FloodingApp`.
+- JavaFX: apenas APIs clássicas (Pane, Circle, Line, Label, Button, ComboBox, Spinner,
+  Slider, CheckBox, TableView, MenuBar, Alert, AnimationTimer, Task).
 
 ## Arquivo backbone.txt (raiz do projeto)
 - 1ª linha: número de nós, possivelmente com ';' final (ex.: "8;"): faça trim e remova o ';'.
 - Demais linhas: NO1;NO2;PESO. Aresta não direcionada, listada uma única vez.
 - Ignore linhas em branco e espaços. Valide ids em [1..N]. Em caso de erro, mensagem clara.
 - Rótulos na GUI: 1->A, 2->B, ... (nós numéricos internamente).
-- Crie um backbone.txt de exemplo (grafo do Tanenbaum) com exatamente:
+- O backbone.txt de exemplo (grafo do Tanenbaum) tem exatamente, um item por linha:
   8;  1;2;2  1;7;6  2;3;7  2;5;2  3;6;3  3;4;3  4;8;2  5;7;1  5;6;2  6;8;2  7;8;4
-  (um item por linha).
 
 ## Semântica da simulação (decisões fechadas)
 - Núcleo em TEMPO VIRTUAL: fila de eventos (PriorityQueue por instante de chegada, com
@@ -55,28 +69,39 @@ medir quantos pacotes são gerados até o destino ser atingido, por versão.
   1) Se o link foi desabilitado enquanto o pacote estava nele: descarte.
   2) Se n é o receptor e ainda não há snapshot: registre snapshot (contador atual, t).
   3) Pergunte à estratégia por quais interfaces reenviar; o receptor TAMBÉM reencaminha.
-  4) Para cada cópia enviada: contador++ e chegada agendada em t + LatencyProvider.nextLatencyMs().
+  4) Para cada cópia enviada: contador++ e chegada agendada em
+     t + LatencyProvider.nextLatencyMs().
 - Versão 1: ignora TTL e envia por todas as interfaces. Versão 2: todas menos a de chegada.
   Versão 3: como a 2, e antes de reenviar faz ttl = ttl - 1; se ttl <= 0, descarta (o
   TTL máximo equivale ao número de saltos; a checagem de entrega vem antes do descarte).
 - LatencyProvider.nextLatencyMs(): inteiro em [1, 500], chamado A CADA transmissão em um
   link. Aceita semente opcional. O peso da aresta (métrica) NÃO influencia a latência.
 - TTL padrão = diâmetro do grafo em saltos (BFS), editável na GUI.
-- Modo ao vivo (GUI): SEM limites, sem trava de segurança e sem throttling. O professor pediu
-  que a versão 1 trave; a UI travando é o comportamento esperado. Não adicione proteções.
+- Modo ao vivo (GUI): SEM limites, sem trava de segurança e sem throttling. O professor
+  pediu que a versão 1 trave; a UI travando é o comportamento esperado. Não adicione
+  proteções.
 - A medida de interesse é o snapshot do contador na primeira chegada ao destino.
 
-## Arquitetura (pacotes sob `flooding`)
-- model: Graph, Node, Link (id, a, b, peso, enabled).
-- io: BackboneLoader.
-- sim: Packet, Simulator, ForwardingStrategy (interface), Strategy1AllInterfaces,
-  Strategy2ExceptIncoming, Strategy3Ttl, Strategy4Custom (stub), LatencyProvider,
-  RunResult, BatchRunner. Sem dependência de JavaFX.
+## Arquitetura (MVC na raiz do projeto, sem pasta src)
+    Principal.java   main no pacote default; lança a GUI
+    backbone.txt, build.sh, run.sh, .gitignore
+    model/       Node, Link, Graph, Packet, Simulator, ForwardingStrategy,
+                 Strategy1AllInterfaces, Strategy2ExceptIncoming, Strategy3Ttl,
+                 Strategy4Custom (stub), LatencyProvider, RunResult
+    controller/  SimulationController, BatchRunner
+    view/        FloodingApp, GraphPane, ControlPanel, ResultsTable, AboutDialog
+    util/        BackboneLoader, ConsoleRunner, GraphInfo
+    img/         só se houver arquivos de imagem (não criar vazia)
+- Pacotes Java: model, controller, view, util (sem prefixo "flooding").
+- Dependências: model não depende de JavaFX, nem de controller, view ou util.
+  view usa model. controller coordena model e view. util só tem utilitários, sem estado
+  de GUI, e pode usar model.
 - Simulator: pull-based, com `advanceTo(long virtualTimeMs)` e `inFlight()` para a GUI, e
-  `runUntilFirstArrival()` para o modo em lote.
-- ui: FloodingApp, GraphPane, ControlPanel, ResultsTable, AboutDialog.
-- Utilitário: ConsoleRunner em sim (args: versão origem destino ttl semente), imprime os
-  eventos e o snapshot. Serve para depuração e testes futuros.
+  `runUntilFirstArrival()` para o modo em lote. O limite do lote (ABORT_LIMIT = 2000000)
+  é constante do próprio Simulator e vale SÓ em `runUntilFirstArrival`.
+- ConsoleRunner (args: versão origem destino ttl semente) imprime os eventos e o
+  snapshot. Serve para depuração e testes futuros.
+- `javac Principal.java` executado na raiz deve compilar o projeto da GUI.
 
 ## GUI
 - Layout do grafo automático, em círculo. Peso exibido em cada aresta.
@@ -91,16 +116,73 @@ medir quantos pacotes são gerados até o destino ser atingido, por versão.
 - Tabela de resultados por versão: última execução, n, média, desvio-padrão.
 - Modo lote: "Executar N vezes" (padrão 30) em Task de fundo, sem animação, semente
   base + i, parando na primeira chegada ou quando a fila esvaziar (destino inalcançável)
-  ou após 2.000.000 de transmissões (marcar como "abortada" e excluir da média).
+  ou ao atingir ABORT_LIMIT (marcar como "abortada" e excluir da média).
 - Menu Arquivo (Recarregar backbone, Sair) e Ajuda > Sobre. O Sobre mostra a documentação
   da Opção 4 a partir de uma constante de texto (hoje: placeholder).
 
+## Padronizacao de codigo (exigida pelo professor; vale para TODO arquivo)
+- Cabecalho em TODO .java, na primeira linha, exatamente neste formato:
+    /* ***************************************************************
+    * Autor............: Juan Prado Da Silva
+    * Matricula........: 202310291
+    * Inicio...........: 01/10/2026
+    * Ultima alteracao.: dd/mm/aaaa
+    * Nome.............: nome do arquivo/classe
+    * Funcao...........: descricao do que a classe faz
+    *************************************************************** */
+  Arquivo novo: Inicio e Ultima alteracao = data de hoje (`date +%d/%m/%Y`).
+  Ao editar um arquivo, atualize Ultima alteracao para hoje.
+- Antes de TODO metodo/construtor, este bloco (formato do professor):
+    /* ***************************************************************
+    * Metodo: nome do metodo
+    * Funcao: o que faz
+    * Parametros: descricao dos parametros (ou: nenhum)
+    * Retorno: descricao do valor retornado (ou: void)
+    *************************************************************** */
+- Indentacao: 2 ESPACOS, nunca tab. Chaves no estilo K&R, com este formato de else:
+    if (condicao) { //comentario curto
+      ...
+    }//fim do if
+    else {
+      ...
+    }//fim do else
+  Comente o fechamento de if/else/for/while/switch/metodo/classe:
+  `}//fim do metodo nomeDoMetodo`, `}//fim da classe NomeDaClasse`.
+- Sempre usar chaves em if/for/while, mesmo com uma unica instrucao.
+- Linhas com no maximo 80 colunas. Ao quebrar: depois de virgula ou antes de operador,
+  continuacao com 4 espacos.
+- SEM ACENTOS em comentarios E em Strings da interface (use "Ultima execucao",
+  "Versao", etc.), inclusive no nome do autor do cabecalho.
+- Nomes (convencoes da Oracle): classes em PascalCase sem espacos; metodos e variaveis
+  em camelCase, sem abreviar sem necessidade (acronimos como ttl ou ip em minusculo);
+  constantes em MAIUSCULAS_COM_UNDERSCORE (static final); uma declaracao por linha.
+  Ordem na classe: constantes/campos estaticos, campos de instancia, construtores,
+  metodos agrupados por funcao.
+- Comentarios em portugues sem acento, curtos e uteis (ex.: `//eh o destino`).
+
 ## Marcos
-- Marco 0: Ambiente. Detecte java/javac, localize o JavaFX, crie build.sh e run.sh e um
-  "hello world" JavaFX que abre uma janela. Relate o que falta instalar.
-- Marco 1: Modelo + loader + backbone.txt + BFS (diâmetro). Programa de console que carrega
-  e imprime o grafo, e mostra o diâmetro.
-- Marco 2: Núcleo de simulação, as 4 estratégias (4 = stub), LatencyProvider, ConsoleRunner.
-- Marco 3: GUI com grafo, controles, animação, contador e TTL.
-- Marco 4: Link desabilitável, tabela de resultados, modo lote, Sobre, ARCHITECTURE.md
-  (máx. 1 página: fluxo de um pacote) e README com instruções de execução.
+- Marco 0 (concluido): Ambiente, build.sh, run.sh e hello world JavaFX.
+- Marco 1 (concluido): Modelo + loader + backbone.txt + BFS (diametro) + GraphInfo.
+- Marco 2 (concluido): Nucleo de simulacao, 4 estrategias (4 = stub), LatencyProvider,
+  ConsoleRunner.
+- Marco 1.5: Migracao MVC + padronizacao dos arquivos existentes. Estrutural: NAO altere
+  semantica nem comportamento (algoritmos, TTL, contador, latencia, tempo virtual,
+  ConsoleRunner, backbone).
+  * ANTES de mover qualquer arquivo: compile com ./build.sh, rode o ConsoleRunner
+    (versao 3, origem 1, destino 4, TTL 3, semente 42) e salve a saida em /tmp/antes.txt.
+  * Mova os arquivos de src/flooding para a estrutura da secao Arquitetura, ajuste
+    package e imports, crie Principal.java, remova a dependencia de src/, atualize
+    build.sh e run.sh, crie .gitignore.
+  * Aplique cabecalho, blocos de metodo, chaves comentadas, 2 espacos, 80 colunas e
+    remocao de acentos em todos os arquivos.
+  * DEPOIS: rode o mesmo ConsoleRunner, compare com diff com /tmp/antes.txt e corrija
+    ate ficar identico. Commit "Marco 1.5". Nao avance para o Marco 3.
+- Marco 3: GUI com grafo, controles, animacao, contador e TTL.
+- Marco 4: Link desabilitavel, tabela de resultados, modo lote, Sobre, ARCHITECTURE.md
+  (max. 1 pagina: fluxo de um pacote) e README com instrucoes de execucao.
+- Marco 5: Padronizacao final. Crie check_style.sh na raiz que verifique em todos os
+  .java: cabecalho no formato, nenhum tab, nenhum caractere nao-ASCII, indentacao
+  multipla de 2, linhas de ate 80 colunas, bloco de metodo antes de cada metodo,
+  comentario de fechamento nos blocos. Corrija tudo ate passar limpo. Defina Inicio e
+  Ultima alteracao de cada arquivo pelas datas do git. Confirme que build.sh e
+  `javac Principal.java` compilam do zero.

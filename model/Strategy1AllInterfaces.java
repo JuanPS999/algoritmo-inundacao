@@ -1,7 +1,16 @@
-package flooding.sim;
+/* ***************************************************************
+* Autor............: Juan Prado Da Silva
+* Matricula........: 202310291
+* Inicio...........: 01/10/2026
+* Ultima alteracao.: 02/10/2026
+* Nome.............: Strategy1AllInterfaces.java
+* Funcao...........: Versao 1 de estrategia de flooding; reenvia por todas as interfaces.
+*************************************************************** */
 
-import flooding.model.Graph;
-import flooding.model.Link;
+package model;
+
+import model.Graph;
+import model.Link;
 
 import java.util.ArrayList;
 import java.util.List;
