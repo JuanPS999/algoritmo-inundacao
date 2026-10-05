@@ -220,4 +220,26 @@ private void drawNodes() {
 public Graph getGraph() {
         return graph;
     }
+
+    /* ***************************************************************
+* Metodo: getNodeX
+* Funcao: Retorna a posicao X do no.
+* Parametros: indice - indice do no nao array (0-based).
+* Retorno: double - posicao X.
+*************************************************************** */
+public double getNodeX(int indice) {
+        if (indice >= 0 && indice < nodeX.length) return nodeX[indice];
+        return 0;
+    }
+
+    /* ***************************************************************
+* Metodo: getNodeY
+* Funcao: Retorna a posicao Y do no.
+* Parametros: indice - indice do no nao array (0-based).
+* Retorno: double - posicao Y.
+*************************************************************** */
+public double getNodeY(int indice) {
+        if (indice >= 0 && indice < nodeY.length) return nodeY[indice];
+        return 0;
+    }
 }
