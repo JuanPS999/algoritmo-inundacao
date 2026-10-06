@@ -14,7 +14,8 @@ import java.util.List;
 /**
  * Utilitarios estatisticos para List<Long>.
  * Calcula mean e standard deviation amostral.
- * Lista vazia ou com menos de 2 valores devolve 0.0.
+ * Lista vazia devolve 0.0; mean com 1 elemento devolve o proprio valor.
+ * standardDeviation com menos de 2 elementos devolve 0.0.
  */
 public final class Statistics {
 
@@ -25,11 +26,11 @@ public final class Statistics {
     * Metodo: mean
     * Funcao: Calcula a media aritmetica dos valores.
     * Parametros: valores - Lista de valores Long.
-    * Retorno: media dos valores, ou 0.0 se a lista estiver vazia ou ter
-    *          apenas um elemento.
+    * Retorno: media dos valores, ou 0.0 se a lista estiver vazia.
+    *          Se a lista tem um elemento, devolve o proprio valor.
     *************************************************************** */
     public static double mean(List<Long> values) {
-        if (values == null || values.isEmpty() || values.size() < 2) {
+        if (values == null || values.isEmpty()) {
             return 0.0;
         }
         long sum = 0;
