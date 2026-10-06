@@ -186,3 +186,14 @@ medir quantos pacotes são gerados até o destino ser atingido, por versão.
   comentario de fechamento nos blocos. Corrija tudo ate passar limpo. Defina Inicio e
   Ultima alteracao de cada arquivo pelas datas do git. Confirme que build.sh e
   `javac Principal.java` compilam do zero.
+
+  ## Prompts curtos (regras fixas para TODO pedido)
+- Siga a secao Padronizacao (cabecalho unico, bloco de metodo, 2 espacos, sem acento,
+  80 colunas).
+- Use sempre timeout nos processos java; nunca abra a GUI em primeiro plano.
+- Edite SOMENTE os arquivos citados no pedido; nao reescreva arquivos inteiros sem
+  necessidade.
+- Ao terminar: ./build.sh, commit com a mensagem indicada e resumo de ate 5 linhas em
+  texto simples.
+- Se algo nao compilar apos 2 tentativas, pare e mostre o erro; nao improvise outra
+  arquitetura.

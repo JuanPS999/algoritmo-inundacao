@@ -2,212 +2,306 @@
 * Autor............: Juan Prado Da Silva
 * Matricula........: 202310291
 * Inicio...........: 02/10/2026
-* Ultima alteracao.: 02/10/2026
+* Ultima alteracao.: 06/10/2026
 * Nome.............: ControlPanel
-* Funcao...........: Painel de controle da simulacao com controles GUI.
+* Funcao...........: Painel lateral com os controles da simulacao:
+*                    versao, transmissor, receptor, TTL, velocidade,
+*                    botoes, contador de pacotes e snapshot.
 *************************************************************** */
 package view;
 
-import model.Graph;
-import model.Simulator;
-import model.ForwardingStrategy;
-import model.LatencyProvider;
-import model.Strategy1AllInterfaces;
-import model.Strategy2ExceptIncoming;
-import model.Strategy3Ttl;
-import model.Strategy4Custom;
-
-import javafx.scene.control.*;
-import javafx.scene.layout.VBox;
-import javafx.beans.property.IntegerProperty;
-import javafx.beans.property.SimpleIntegerProperty;
 import javafx.geometry.Insets;
+import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.Slider;
+import javafx.scene.control.Spinner;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
+import model.Graph;
 
-/**
- * Painel de controle da simulacao: combos de versao, transmissor, receptor,
- * spinner de TTL e botoes Iniciar/Resetar.
- */
 public class ControlPanel extends VBox {
 
-    private final Graph graph;
-    private Simulator simulator;
+  private static final String[] VERSION_NAMES = {
+    "1 - Todas as interfaces",
+    "2 - Exceto a de chegada",
+    "3 - Exceto a de chegada + TTL",
+    "4 - Versao 3 + otimizacao"
+  };
+  private static final String NO_SNAPSHOT = "Destino ainda nao atingido";
 
-    private final ComboBox<Integer> versionBox;
-    private final ComboBox<Integer> sourceBox;
-    private final ComboBox<Integer> destBox;
-    private final Spinner<Integer> ttlSpinner;
-    private final Button btnStart;
-    private final Button btnReset;
+  private final ComboBox<String> versionBox = new ComboBox<String>();
+  private final ComboBox<String> sourceBox = new ComboBox<String>();
+  private final ComboBox<String> destinationBox = new ComboBox<String>();
+  private final Spinner<Integer> ttlSpinner;
+  private final Slider speedSlider = new Slider(0.25, 10.0, 2.0);
+  private final Label speedLabel = new Label();
+  private final Button startButton = new Button("Iniciar");
+  private final Button pauseButton = new Button("Pausar");
+  private final Button resetButton = new Button("Resetar");
+  private final Label counterLabel = new Label();
+  private final Label timeLabel = new Label();
+  private final Label snapshotLabel = new Label(NO_SNAPSHOT);
+  private final Label statusLabel = new Label("Pronto.");
 
-    private final IntegerProperty currentVersion = new SimpleIntegerProperty(1);
-    private final IntegerProperty sourceId = new SimpleIntegerProperty(1);
-    private final IntegerProperty destId = new SimpleIntegerProperty(2);
-    private final IntegerProperty ttlValue = new SimpleIntegerProperty(0);
+  /* ***************************************************************
+  * Metodo: ControlPanel
+  * Funcao: construtor; monta todos os controles do painel.
+  * Parametros: graph = grafo (rotulos dos nos e diametro para o TTL)
+  * Retorno: nao se aplica
+  *************************************************************** */
+  public ControlPanel(Graph graph) {
+    super(8.0);
+    setPadding(new Insets(12.0));
+    setPrefWidth(280.0);
 
-    /* ***************************************************************
-* Metodo: ControlPanel
-* Funcao: Construtor que inicializa o painel com o grafo e controles.
-* Parametros: graph - grafo da rede; simulator - nucleo da simulacao.
-* Retorno: void
-*************************************************************** */
-public ControlPanel(Graph graph, Simulator simulator) {
-        this.graph = graph;
-        this.simulator = simulator;
+    for (int i = 0; i < VERSION_NAMES.length; i++) {
+      versionBox.getItems().add(VERSION_NAMES[i]);
+    }//fim do for
+    versionBox.getSelectionModel().select(2);
 
-        setPadding(new Insets(10));
-        setSpacing(8);
-        setStyle("-fx-background-color: #f0f0f0;");
+    for (int id = 1; id <= graph.getNodeCount(); id++) {
+      String label = graph.getNode(id).getLabel();
+      sourceBox.getItems().add(label);
+      destinationBox.getItems().add(label);
+    }//fim do for
+    sourceBox.getSelectionModel().select(0);
+    destinationBox.getSelectionModel().select(
+        Math.min(3, graph.getNodeCount() - 1));
 
-        // Diâmetro para o valor padrao do TTL
-        int diameter = graph.diameter();
+    ttlSpinner = new Spinner<Integer>(1, 99, Math.max(1, graph.diameter()));
+    ttlSpinner.setEditable(true);
 
-        // --- ComboBox Versao ---
-        versionBox = new ComboBox<>();
-        versionBox.getItems().addAll(1, 2, 3, 4);
-        versionBox.setValue(1);
-        versionBox.valueProperty().addListener((obs, oldV, newV) -> {
-            currentVersion.set(newV.intValue());
-        });
+    versionBox.setMaxWidth(Double.MAX_VALUE);
+    sourceBox.setMaxWidth(Double.MAX_VALUE);
+    destinationBox.setMaxWidth(Double.MAX_VALUE);
+    ttlSpinner.setMaxWidth(Double.MAX_VALUE);
+    speedSlider.setMaxWidth(Double.MAX_VALUE);
 
-        // --- ComboBox Transmissor ---
-        sourceBox = new ComboBox<>();
-        for (int i = 1; i <= graph.getNodeCount(); i++) {
-            sourceBox.getItems().add(i);
-        }
-        sourceBox.setValue(1);
-        sourceBox.valueProperty().addListener((obs, oldS, newS) -> {
-            sourceId.set(newS.intValue());
-        });
+    speedSlider.valueProperty().addListener(
+        (observable, oldValue, newValue) -> {
+          updateSpeedLabel();
+        });//fim do listener de velocidade
+    updateSpeedLabel();
 
-        // --- ComboBox Receptor ---
-        destBox = new ComboBox<>();
-        for (int i = 1; i <= graph.getNodeCount(); i++) {
-            destBox.getItems().add(i);
-        }
-        destBox.setValue(2);
-        destBox.valueProperty().addListener((obs, oldD, newD) -> {
-            destId.set(newD.intValue());
-        });
+    pauseButton.setDisable(true);
+    HBox buttons = new HBox(6.0, startButton, pauseButton, resetButton);
 
-        // --- Spinner TTL ---
-        ttlSpinner = new Spinner<>(1, diameter > 0 ? diameter : 10, diameter > 0 ? diameter : 10);
-        ttlSpinner.valueProperty().addListener((obs, oldT, newT) -> {
-            ttlValue.set(newT.intValue());
-        });
+    snapshotLabel.setWrapText(true);
+    snapshotLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold;");
+    statusLabel.setWrapText(true);
+    resetDisplay();
 
-        // --- Botoes ---
-        btnStart = new Button("Iniciar");
-        btnReset = new Button("Resetar");
+    getChildren().addAll(titleLabel("Versao do algoritmo"), versionBox,
+        titleLabel("Transmissor"), sourceBox,
+        titleLabel("Receptor"), destinationBox,
+        titleLabel("TTL inicial (versoes 3 e 4)"), ttlSpinner,
+        speedLabel, speedSlider, buttons,
+        titleLabel("Medicao"), counterLabel, timeLabel, snapshotLabel,
+        statusLabel);
+  }//fim do construtor ControlPanel
 
-        // Layout
-        getChildren().addAll(
-                new Label("Versao:"), versionBox,
-                new Label("Transmissor:"), sourceBox,
-                new Label("Receptor:"), destBox,
-                new Label("TTL (inicial):"), ttlSpinner,
-                btnStart,
-                btnReset
-        );
+  /* ***************************************************************
+  * Metodo: setOnStart
+  * Funcao: registra a acao do botao Iniciar.
+  * Parametros: action = acao a executar
+  * Retorno: void
+  *************************************************************** */
+  public void setOnStart(Runnable action) {
+    startButton.setOnAction(event -> action.run());
+  }//fim do metodo setOnStart
 
-        // Ajustar largura do spinner
-        ttlSpinner.setPrefWidth(60);
+  /* ***************************************************************
+  * Metodo: setOnPause
+  * Funcao: registra a acao do botao Pausar/Continuar.
+  * Parametros: action = acao a executar
+  * Retorno: void
+  *************************************************************** */
+  public void setOnPause(Runnable action) {
+    pauseButton.setOnAction(event -> action.run());
+  }//fim do metodo setOnPause
 
-        // Inicializar TTL com o diametro
-        ttlSpinner.getValueFactory().setValue(diameter > 0 ? diameter : 5);
+  /* ***************************************************************
+  * Metodo: setOnReset
+  * Funcao: registra a acao do botao Resetar.
+  * Parametros: action = acao a executar
+  * Retorno: void
+  *************************************************************** */
+  public void setOnReset(Runnable action) {
+    resetButton.setOnAction(event -> action.run());
+  }//fim do metodo setOnReset
 
-        // Eventos dos botoes
-        btnStart.setOnAction(e -> startSimulation());
-        btnReset.setOnAction(e -> resetSimulation());
-    }
+  /* ***************************************************************
+  * Metodo: setOnEndpointsChange
+  * Funcao: avisa quando transmissor ou receptor mudam.
+  * Parametros: action = acao a executar
+  * Retorno: void
+  *************************************************************** */
+  public void setOnEndpointsChange(Runnable action) {
+    sourceBox.valueProperty().addListener((observable, oldValue, newValue) -> {
+      action.run();
+    });//fim do listener do transmissor
+    destinationBox.valueProperty().addListener(
+        (observable, oldValue, newValue) -> {
+          action.run();
+        });//fim do listener do receptor
+  }//fim do metodo setOnEndpointsChange
 
-    /* ***************************************************************
-* Metodo: getCurrentVersion
-* Funcao: Retorna a versao atual selecionada (1..4).
-* Parametros: nenhum
-* Retorno: int - numero da versao.
-*************************************************************** */
-public int getCurrentVersion() {
-        return currentVersion.get();
-    }
+  /* ***************************************************************
+  * Metodo: getVersion
+  * Funcao: informa a versao escolhida.
+  * Parametros: nenhum
+  * Retorno: int de 1 a 4
+  *************************************************************** */
+  public int getVersion() {
+    return versionBox.getSelectionModel().getSelectedIndex() + 1;
+  }//fim do metodo getVersion
 
-    /* ***************************************************************
-* Metodo: getSourceId
-* Funcao: Retorna o id do transmissor selecionado.
-* Parametros: nenhum
-* Retorno: int - id do no transmissor.
-*************************************************************** */
-public int getSourceId() {
-        return sourceId.get();
-    }
+  /* ***************************************************************
+  * Metodo: getSourceId
+  * Funcao: informa o id do transmissor escolhido.
+  * Parametros: nenhum
+  * Retorno: int com o id do no (comeca em 1)
+  *************************************************************** */
+  public int getSourceId() {
+    return sourceBox.getSelectionModel().getSelectedIndex() + 1;
+  }//fim do metodo getSourceId
 
-    /* ***************************************************************
-* Metodo: getDestId
-* Funcao: Retorna o id do receptor selecionado.
-* Parametros: nenhum
-* Retorno: int - id do no receptor.
-*************************************************************** */
-public int getDestId() {
-        return destId.get();
-    }
+  /* ***************************************************************
+  * Metodo: getDestinationId
+  * Funcao: informa o id do receptor escolhido.
+  * Parametros: nenhum
+  * Retorno: int com o id do no (comeca em 1)
+  *************************************************************** */
+  public int getDestinationId() {
+    return destinationBox.getSelectionModel().getSelectedIndex() + 1;
+  }//fim do metodo getDestinationId
 
-    /* ***************************************************************
-* Metodo: getTtlValue
-* Funcao: Retorna o valor do TTL selecionado.
-* Parametros: nenhum
-* Retorno: int - valor do TTL.
-*************************************************************** */
-public int getTtlValue() {
-        return ttlValue.get();
-    }
+  /* ***************************************************************
+  * Metodo: getTtl
+  * Funcao: le o TTL inicial (aceita o valor digitado no campo).
+  * Parametros: nenhum
+  * Retorno: int com o TTL, no minimo 1
+  *************************************************************** */
+  public int getTtl() {
+    try {
+      int typed = Integer.parseInt(ttlSpinner.getEditor().getText().trim());
+      return Math.max(1, typed);
+    }//fim do try
+    catch (NumberFormatException exception) {
+      return ttlSpinner.getValue().intValue();
+    }//fim do catch
+  }//fim do metodo getTtl
 
-    /* ***************************************************************
-* Metodo: startSimulation
-* Funcao: Inicia a simulacao com os parametros atuais.
-* Parametros: nenhum
-* Retorno: void
-*************************************************************** */
-private void startSimulation() {
-        int version = getCurrentVersion();
-        int source = getSourceId();
-        int dest = getDestId();
-        int ttl = getTtlValue();
+  /* ***************************************************************
+  * Metodo: getSpeed
+  * Funcao: informa o fator de velocidade escolhido no slider.
+  * Parametros: nenhum
+  * Retorno: double entre 0.25 e 10.0
+  *************************************************************** */
+  public double getSpeed() {
+    return speedSlider.getValue();
+  }//fim do metodo getSpeed
 
-        // Validacao basica
-        if (source == dest) {
-            Alert alert = new Alert(Alert.AlertType.WARNING);
-            alert.setTitle("Aviso");
-            alert.setContentText("Transmissor e receptor diferentes, por favor.");
-            alert.showAndWait();
-            return;
-        }
+  /* ***************************************************************
+  * Metodo: setCounter
+  * Funcao: mostra o contador de pacotes gerados.
+  * Parametros: packets = pacotes gerados ate agora
+  * Retorno: void
+  *************************************************************** */
+  public void setCounter(long packets) {
+    counterLabel.setText("Pacotes gerados: " + packets);
+  }//fim do metodo setCounter
 
-        // Criar estrategia
-        ForwardingStrategy strategy;
-        switch (version) {
-            case 2: strategy = new Strategy2ExceptIncoming(); break;
-            case 3: strategy = new Strategy3Ttl(); break;
-            case 4: strategy = new Strategy4Custom(); break;
-            default: strategy = new Strategy1AllInterfaces();
-        }
+  /* ***************************************************************
+  * Metodo: setVirtualTime
+  * Funcao: mostra o relogio virtual da simulacao.
+  * Parametros: millis = tempo virtual em milissegundos
+  * Retorno: void
+  *************************************************************** */
+  public void setVirtualTime(long millis) {
+    timeLabel.setText("Tempo virtual: " + millis + " ms");
+  }//fim do metodo setVirtualTime
 
-        // Criar simulador (nao final para permitir reatribuicao)
-        simulator = new Simulator(graph, strategy, new LatencyProvider(42), source, dest, ttl);
+  /* ***************************************************************
+  * Metodo: showSnapshot
+  * Funcao: destaca o contador no instante da primeira chegada.
+  * Parametros: packets = pacotes gerados; millis = tempo virtual
+  * Retorno: void
+  *************************************************************** */
+  public void showSnapshot(long packets, long millis) {
+    snapshotLabel.setText("Destino atingido: " + packets
+        + " pacotes gerados (t = " + millis + " ms)");
+  }//fim do metodo showSnapshot
 
-        // AnimationTimer sera conectado pelo SimulationController
-        System.out.println("Simulacao iniciada: versao=" + version + " source=" + source + " dest=" + dest + " ttl=" + ttl);
-    }
+  /* ***************************************************************
+  * Metodo: setStatus
+  * Funcao: mostra uma mensagem de estado para o usuario.
+  * Parametros: message = texto da mensagem
+  * Retorno: void
+  *************************************************************** */
+  public void setStatus(String message) {
+    statusLabel.setText(message);
+  }//fim do metodo setStatus
 
-    /* ***************************************************************
-* Metodo: resetSimulation
-* Funcao: Reseta o estado da simulacao.
-* Parametros: nenhum
-* Retorno: void
-*************************************************************** */
-private void resetSimulation() {
-        simulator = new Simulator(graph,
-                new Strategy1AllInterfaces(),
-                new LatencyProvider(42),
-                getSourceId(), getDestId(), (Integer) ttlSpinner.getValue());
-        System.out.println("Simulacao resetada");
-    }
-}
+  /* ***************************************************************
+  * Metodo: resetDisplay
+  * Funcao: zera contador, tempo e snapshot.
+  * Parametros: nenhum
+  * Retorno: void
+  *************************************************************** */
+  public void resetDisplay() {
+    setCounter(0);
+    setVirtualTime(0);
+    snapshotLabel.setText(NO_SNAPSHOT);
+  }//fim do metodo resetDisplay
+
+  /* ***************************************************************
+  * Metodo: setRunning
+  * Funcao: trava os controles de escolha enquanto a simulacao roda.
+  * Parametros: running = true se ha simulacao em andamento
+  * Retorno: void
+  *************************************************************** */
+  public void setRunning(boolean running) {
+    versionBox.setDisable(running);
+    sourceBox.setDisable(running);
+    destinationBox.setDisable(running);
+    ttlSpinner.setDisable(running);
+    startButton.setDisable(running);
+    pauseButton.setDisable(!running);
+  }//fim do metodo setRunning
+
+  /* ***************************************************************
+  * Metodo: setPaused
+  * Funcao: alterna o texto do botao entre Pausar e Continuar.
+  * Parametros: paused = true se a simulacao esta pausada
+  * Retorno: void
+  *************************************************************** */
+  public void setPaused(boolean paused) {
+    pauseButton.setText(paused ? "Continuar" : "Pausar");
+  }//fim do metodo setPaused
+
+  /* ***************************************************************
+  * Metodo: updateSpeedLabel
+  * Funcao: atualiza o texto com o fator de velocidade atual.
+  * Parametros: nenhum
+  * Retorno: void
+  *************************************************************** */
+  private void updateSpeedLabel() {
+    speedLabel.setText(String.format("Velocidade: %.2fx",
+        speedSlider.getValue()));
+  }//fim do metodo updateSpeedLabel
+
+  /* ***************************************************************
+  * Metodo: titleLabel
+  * Funcao: cria um rotulo de titulo em negrito.
+  * Parametros: text = texto do rotulo
+  * Retorno: Label formatado
+  *************************************************************** */
+  private Label titleLabel(String text) {
+    Label label = new Label(text);
+    label.setStyle("-fx-font-weight: bold;");
+    return label;
+  }//fim do metodo titleLabel
+
+}//fim da classe ControlPanel

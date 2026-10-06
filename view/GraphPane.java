@@ -2,244 +2,295 @@
 * Autor............: Juan Prado Da Silva
 * Matricula........: 202310291
 * Inicio...........: 02/10/2026
-* Ultima alteracao.: 02/10/2026
+* Ultima alteracao.: 06/10/2026
 * Nome.............: GraphPane
-* Funcao...........: Painel JavaFX que desenha o grafo a partir do backbone,
-*                      com nos em circulo, rotulos A..H e pesos nos links.
-* Requisito: grafo inteiro deve ficar visivel dentro do viewport, sem cortes,
-*              raio calculado dinamicamente a partir do tamanho disponivel.
+* Funcao...........: Painel JavaFX que desenha o grafo (nos em circulo,
+*                    links com peso), os pacotes em transito e permite
+*                    habilitar/desabilitar links com o clique.
 *************************************************************** */
 package view;
 
-import model.Graph;
-import model.Link;
-import model.Node;
-
 import java.util.List;
-
-import javafx.geometry.Point2D;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Alert.AlertType;
+import java.util.Map;
+import javafx.geometry.VPos;
+import javafx.scene.Group;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
+import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
+import model.Graph;
+import model.Link;
+import model.Node;
+import model.Packet;
+import model.Simulator;
 
-/**
- * Painel que desenha o grafo em circulo: nos com rotulos A..H,
-* linhas para os links e o peso escrito em cada link.
-* O grafo eh centralizado e dimensionado para caber dentro do viewport,
-* calculando o raio a partir do tamanho disponivel, deixando margem para
-* nos e rotulos. O posicionamento e responsivo a redimensionamento.
-* Clique em um link alterna estado habilitado/desabilitado
-* (cor vermelha quando desabilitado).
-*/
 public class GraphPane extends Pane {
 
-    private static final double NODE_RADIUS = 25;
-    private static final double LABEL_OFFSET = 30; // offset do rotulo ao centro
+  private static final double NODE_RADIUS = 22.0;
+  private static final double PACKET_RADIUS = 6.0;
+  private static final double MARGIN = 40.0;
+  private static final double MIN_LAYOUT_RADIUS = 40.0;
+  private static final double HIT_WIDTH = 14.0;
 
-    private Graph graph;
-    private double[] nodeX;
-    private double[] nodeY;
+  private final Graph graph;
+  private final Group linksLayer = new Group();
+  private final Group nodesLayer = new Group();
+  private final Group packetsLayer = new Group();
+  private double[] nodeX = new double[0];
+  private double[] nodeY = new double[0];
+  private int sourceId = 0;
+  private int destinationId = 0;
+  private boolean destinationReached = false;
 
-    /* ***************************************************************
-* Metodo: GraphPane
-* Funcao: Construtor que carrega o backbone e inicializa o desenho.
-* Parametros: nenhum
-* Retorno: void
-*************************************************************** */
-public GraphPane() {
-        loadAndDrawGraph();
-        // Define tamanho preferido baseado em dimensao razoavel
-        setPrefSize(800, 600);
-    }
+  /* ***************************************************************
+  * Metodo: GraphPane
+  * Funcao: construtor; monta as camadas e desenha o grafo.
+  * Parametros: graph = grafo carregado do backbone.txt
+  * Retorno: nao se aplica
+  *************************************************************** */
+  public GraphPane(Graph graph) {
+    this.graph = graph;
+    setPrefSize(800.0, 600.0);
+    packetsLayer.setMouseTransparent(true);
+    getChildren().addAll(linksLayer, nodesLayer, packetsLayer);
+    widthProperty().addListener((observable, oldValue, newValue) -> {
+      redraw();
+    });//fim do listener de largura
+    heightProperty().addListener((observable, oldValue, newValue) -> {
+      redraw();
+    });//fim do listener de altura
+    redraw();
+  }//fim do construtor GraphPane
 
-    /* ***************************************************************
-* Metodo: loadAndDrawGraph
-* Funcao: Carrega backbone.txt e redesenha o grafo.
-* Parametros: nenhum
-* Retorno: void
-*************************************************************** */
-private void loadAndDrawGraph() {
-        try {
-            java.nio.file.Path backbone = java.nio.file.Paths.get("backbone.txt");
-            graph = util.BackboneLoader.load(backbone);
-            computeLayout();
-            drawLinks();
-            drawNodes();
-        } catch (Exception e) {
-            Alert alert = new Alert(AlertType.ERROR);
-            alert.setTitle("Erro");
-            alert.setContentText(e.getMessage());
-            alert.showAndWait();
-        }
-    }
+  /* ***************************************************************
+  * Metodo: getGraph
+  * Funcao: devolve o grafo exibido.
+  * Parametros: nenhum
+  * Retorno: Graph exibido no painel
+  *************************************************************** */
+  public Graph getGraph() {
+    return graph;
+  }//fim do metodo getGraph
 
-    /* ***************************************************************
-* Metodo: computeLayout
-* Funcao: Posiciona os nos em circulo uniforme, calculando raio baseado
-*         no tamanho disponivel do GraphPane.
-* Parametros: nenhum
-* Retorno: void
-*************************************************************** */
-private void computeLayout() {
-        int n = graph.getNodeCount();
-        if (n <= 0) {
-            nodeX = new double[0];
-            nodeY = new double[0];
-            return;
-        }
+  /* ***************************************************************
+  * Metodo: setEndpoints
+  * Funcao: define transmissor (verde) e receptor (azul) e redesenha.
+  * Parametros: sourceId = id do transmissor; destinationId = id do
+  *             receptor
+  * Retorno: void
+  *************************************************************** */
+  public void setEndpoints(int sourceId, int destinationId) {
+    this.sourceId = sourceId;
+    this.destinationId = destinationId;
+    drawNodes();
+  }//fim do metodo setEndpoints
 
-        // Calcula raio baseado no tamanho disponivel do pane com margem segura
-        double availableWidth = getWidth() > 0 ? getWidth() : 800;
-        double availableHeight = getHeight() > 0 ? getHeight() : 600;
+  /* ***************************************************************
+  * Metodo: setDestinationReached
+  * Funcao: destaca (ou nao) o receptor quando o destino foi atingido.
+  * Parametros: reached = true se o destino ja foi atingido
+  * Retorno: void
+  *************************************************************** */
+  public void setDestinationReached(boolean reached) {
+    this.destinationReached = reached;
+    drawNodes();
+  }//fim do metodo setDestinationReached
 
-        // Margem minima: considerar diametro dos nos + espaco para rotulos
-        double minMargin = (NODE_RADIUS * 2 + LABEL_OFFSET) * 1.2;
-        double radius = Math.min(availableWidth, availableHeight) / 2.0 - minMargin;
+  /* ***************************************************************
+  * Metodo: showPackets
+  * Funcao: redesenha os pacotes em transito, interpolados ao longo do
+  *         link; mostra o TTL ao lado quando solicitado.
+  * Parametros: flights = pacotes em transito; virtualTime = relogio
+  *             virtual; origins = no de origem de cada pacote;
+  *             showTtl = true para exibir o TTL
+  * Retorno: void
+  *************************************************************** */
+  public void showPackets(List<Simulator.InFlight> flights,
+      long virtualTime, Map<Packet, Integer> origins, boolean showTtl) {
+    packetsLayer.getChildren().clear();
+    for (Simulator.InFlight flight : flights) {
+      Link link = flight.link;
+      Integer origin = origins.get(flight.packet);
+      int fromId = (origin != null) ? origin.intValue() : link.getA();
+      int toId = link.other(fromId);
+      double progress = flight.progress(virtualTime);
+      if (progress < 0.0) {
+        progress = 0.0;
+      }//fim do if
+      if (progress > 1.0) {
+        progress = 1.0;
+      }//fim do if
+      double fromX = nodeX[fromId - 1];
+      double fromY = nodeY[fromId - 1];
+      double x = fromX + (nodeX[toId - 1] - fromX) * progress;
+      double y = fromY + (nodeY[toId - 1] - fromY) * progress;
+      Circle dot = new Circle(x, y, PACKET_RADIUS);
+      dot.setFill(Color.ORANGE);
+      dot.setStroke(Color.BLACK);
+      packetsLayer.getChildren().add(dot);
+      if (showTtl) {
+        Text ttlText = new Text(x + 8.0, y - 8.0,
+            "ttl=" + flight.packet.getTtl());
+        ttlText.setFont(Font.font(11));
+        packetsLayer.getChildren().add(ttlText);
+      }//fim do if
+    }//fim do for
+  }//fim do metodo showPackets
 
-        // Garante raio minimo positivo
-        if (radius < 50) radius = 50;
+  /* ***************************************************************
+  * Metodo: clearPackets
+  * Funcao: remove todos os pacotes desenhados.
+  * Parametros: nenhum
+  * Retorno: void
+  *************************************************************** */
+  public void clearPackets() {
+    packetsLayer.getChildren().clear();
+  }//fim do metodo clearPackets
 
-        double angleStep = 2 * Math.PI / n;
-        nodeX = new double[n];
-        nodeY = new double[n];
+  /* ***************************************************************
+  * Metodo: redraw
+  * Funcao: recalcula as posicoes e redesenha links e nos.
+  * Parametros: nenhum
+  * Retorno: void
+  *************************************************************** */
+  private void redraw() {
+    computeLayout();
+    drawLinks();
+    drawNodes();
+  }//fim do metodo redraw
 
-        for (int i = 0; i < n; i++) {
-            double angle = i * angleStep - Math.PI / 2; // -PI/2 para comecar no topo (12h)
-            double x = getWidth() / 2.0 + radius * Math.cos(angle);
-            double y = getHeight() / 2.0 + radius * Math.sin(angle);
-            nodeX[i] = x;
-            nodeY[i] = y;
-        }
-    }
+  /* ***************************************************************
+  * Metodo: computeLayout
+  * Funcao: posiciona os nos em circulo, centralizados no painel.
+  * Parametros: nenhum
+  * Retorno: void
+  *************************************************************** */
+  private void computeLayout() {
+    int count = graph.getNodeCount();
+    nodeX = new double[count];
+    nodeY = new double[count];
+    double centerX = getWidth() / 2.0;
+    double centerY = getHeight() / 2.0;
+    double radius = Math.min(getWidth(), getHeight()) / 2.0
+        - NODE_RADIUS - MARGIN;
+    if (radius < MIN_LAYOUT_RADIUS) {
+      radius = MIN_LAYOUT_RADIUS;
+    }//fim do if
+    for (int i = 0; i < count; i++) {
+      double angle = 2.0 * Math.PI * i / count - Math.PI / 2.0;
+      nodeX[i] = centerX + radius * Math.cos(angle);
+      nodeY[i] = centerY + radius * Math.sin(angle);
+    }//fim do for
+  }//fim do metodo computeLayout
 
-    /* ***************************************************************
-* Metodo: layoutBoundsChanged
-* Funcao: Called when the pane's layout bounds change (e.g., resize).
-*          Recalculates layout and redraws.
-* Parametros: nenhum
-* Retorno: void
-*************************************************************** */
-@Override
-protected void layoutChildren() {
-        super.layoutChildren();
-        // Recalcular posicoes se o grafo ja estiver carregado
-        if (graph != null) {
-            computeLayout();
-        }
+  /* ***************************************************************
+  * Metodo: drawLinks
+  * Funcao: desenha os links; clicar em um link alterna entre
+  *         habilitado (cinza) e desabilitado (vermelho tracejado).
+  * Parametros: nenhum
+  * Retorno: void
+  *************************************************************** */
+  private void drawLinks() {
+    linksLayer.getChildren().clear();
+    for (Link link : graph.getLinks()) {
+      double x1 = nodeX[link.getA() - 1];
+      double y1 = nodeY[link.getA() - 1];
+      double x2 = nodeX[link.getB() - 1];
+      double y2 = nodeY[link.getB() - 1];
+      Line line = new Line(x1, y1, x2, y2);
+      line.setStrokeWidth(2.0);
+      if (link.isEnabled()) {
+        line.setStroke(Color.DIMGRAY);
+      }//fim do if
+      else {
+        line.setStroke(Color.RED);
+        line.getStrokeDashArray().addAll(8.0, 6.0);
+      }//fim do else
+      Line hitArea = new Line(x1, y1, x2, y2);
+      hitArea.setStrokeWidth(HIT_WIDTH);
+      hitArea.setStroke(Color.TRANSPARENT);
+      hitArea.setOnMouseClicked(event -> {
+        link.setEnabled(!link.isEnabled());
         drawLinks();
-        drawNodes();
-    }
+      });//fim do evento de clique
+      linksLayer.getChildren().addAll(line, hitArea);
+      addWeightLabel(link.getWeight(), (x1 + x2) / 2.0, (y1 + y2) / 2.0);
+    }//fim do for
+  }//fim do metodo drawLinks
 
-    /* ***************************************************************
-* Metodo: drawLinks
-* Funcao: Desenha todas as arestas (links) do grafo com pesos.
-* Parametros: nenhum
-* Retorno: void
-*************************************************************** */
-private void drawLinks() {
-        getChildren().clear();
-        if (graph == null) return;
-        List<Link> links = graph.getLinks();
-        for (int i = 0; i < links.size(); i++) {
-            Link link = links.get(i);
-            int a = link.getA();
-            int b = link.getB();
-            double x1 = nodeX[a - 1];
-            double y1 = nodeY[a - 1];
-            double x2 = nodeX[b - 1];
-            double y2 = nodeY[b - 1];
-            Line line = new Line(x1, y1, x2, y2);
-            line.setStroke(Color.BLACK);
-            line.setStrokeWidth(2);
-            if (!link.isEnabled()) {
-                line.setStroke(Color.RED);
-                // link desabilitado: cor vermelha
-            }
-            line.setOnMouseClicked(e -> {
-                link.setEnabled(!link.isEnabled());
-                drawLinks();
-                drawNodes();
-            });
-            getChildren().add(line);
+  /* ***************************************************************
+  * Metodo: addWeightLabel
+  * Funcao: escreve o peso do link sobre um fundo branco.
+  * Parametros: weight = peso; centerX, centerY = ponto medio do link
+  * Retorno: void
+  *************************************************************** */
+  private void addWeightLabel(int weight, double centerX, double centerY) {
+    Text text = new Text(String.valueOf(weight));
+    text.setFont(Font.font(12));
+    text.setTextOrigin(VPos.CENTER);
+    double width = text.getLayoutBounds().getWidth();
+    double height = text.getLayoutBounds().getHeight();
+    text.setX(centerX - width / 2.0);
+    text.setY(centerY);
+    Rectangle background = new Rectangle(centerX - width / 2.0 - 3.0,
+        centerY - height / 2.0, width + 6.0, height);
+    background.setFill(Color.WHITE);
+    background.setOpacity(0.85);
+    background.setMouseTransparent(true);
+    text.setMouseTransparent(true);
+    linksLayer.getChildren().addAll(background, text);
+  }//fim do metodo addWeightLabel
 
-            // desenhar peso no meio do link
-            double midX = (x1 + x2) / 2;
-            double midY = (y1 + y2) / 2;
-            Text weightText = new Text(String.valueOf(link.getWeight()));
-            weightText.setFont(Font.font(12));
-            weightText.setFill(Color.BLACK);
-            getChildren().add(weightText);
-            double dx = x2 - x1;
-            double dy = y2 - y1;
-            double len = Math.sqrt(dx * dx + dy * dy);
-            double angle = Math.atan2(dy, dx);
-            weightText.setTranslateX(midX + (len / 2) * Math.cos(angle + Math.PI / 2));
-            weightText.setTranslateY(midY + (len / 2) * Math.sin(angle + Math.PI / 2));
-        }
-    }
+  /* ***************************************************************
+  * Metodo: drawNodes
+  * Funcao: desenha os nos com rotulo; transmissor verde, receptor azul
+  *         (contorno grosso quando o destino foi atingido).
+  * Parametros: nenhum
+  * Retorno: void
+  *************************************************************** */
+  private void drawNodes() {
+    nodesLayer.getChildren().clear();
+    List<Node> nodes = graph.getNodes();
+    for (int i = 0; i < nodes.size(); i++) {
+      int id = nodes.get(i).getId();
+      Circle circle = new Circle(nodeX[i], nodeY[i], NODE_RADIUS);
+      circle.setFill(fillOf(id));
+      if (destinationReached && id == destinationId) {
+        circle.setStroke(Color.ORANGERED);
+        circle.setStrokeWidth(5.0);
+      }//fim do if
+      else {
+        circle.setStroke(Color.BLACK);
+        circle.setStrokeWidth(2.0);
+      }//fim do else
+      Text label = new Text(nodes.get(i).getLabel());
+      label.setFont(Font.font(16));
+      label.setTextOrigin(VPos.CENTER);
+      label.setX(nodeX[i] - label.getLayoutBounds().getWidth() / 2.0);
+      label.setY(nodeY[i]);
+      circle.setMouseTransparent(true);
+      label.setMouseTransparent(true);
+      nodesLayer.getChildren().addAll(circle, label);
+    }//fim do for
+  }//fim do metodo drawNodes
 
-    /* ***************************************************************
-* Metodo: drawNodes
-* Funcao: Desenha nos como circulos com rotulos A..H.
-* Parametros: nenhum
-* Retorno: void
-*************************************************************** */
-private void drawNodes() {
-        getChildren().clear();
-        if (graph == null) return;
-        List<Node> nodes = graph.getNodes();
-        for (int i = 0; i < nodes.size(); i++) {
-            double x = nodeX[i];
-            double y = nodeY[i];
-            Circle circle = new Circle(x, y, NODE_RADIUS);
-            circle.setFill(Color.WHITE);
-            circle.setStroke(Color.BLACK);
-            circle.setStrokeWidth(2);
-            getChildren().add(circle);
-            Text label = new Text(nodes.get(i).getLabel());
-            label.setFont(Font.font(14));
-            label.setFill(Color.BLACK);
-            // Posicionar rotulo levemente acima e centralizado do no
-            label.setX(x - label.getLayoutBounds().getWidth() / 2);
-            label.setY(y - NODE_RADIUS - 5); // acima do circulo
-            getChildren().add(label);
-        }
-    }
+  /* ***************************************************************
+  * Metodo: fillOf
+  * Funcao: escolhe a cor de preenchimento de um no.
+  * Parametros: id = id do no
+  * Retorno: Color verde (transmissor), azul (receptor) ou branco
+  *************************************************************** */
+  private Color fillOf(int id) {
+    if (id == sourceId) {
+      return Color.LIGHTGREEN;
+    }//fim do if
+    if (id == destinationId) {
+      return Color.LIGHTSKYBLUE;
+    }//fim do if
+    return Color.WHITE;
+  }//fim do metodo fillOf
 
-    /* ***************************************************************
-* Metodo: getGraph
-* Funcao: Retorna o grafico carregado.
-* Parametros: nenhum
-* Retorno: Graph
-*************************************************************** */
-public Graph getGraph() {
-        return graph;
-    }
-
-    /* ***************************************************************
-* Metodo: getNodeX
-* Funcao: Retorna a posicao X do no.
-* Parametros: indice - indice do no nao array (0-based).
-* Retorno: double - posicao X.
-*************************************************************** */
-public double getNodeX(int indice) {
-        if (indice >= 0 && indice < nodeX.length) return nodeX[indice];
-        return 0;
-    }
-
-    /* ***************************************************************
-* Metodo: getNodeY
-* Funcao: Retorna a posicao Y do no.
-* Parametros: indice - indice do no nao array (0-based).
-* Retorno: double - posicao Y.
-*************************************************************** */
-public double getNodeY(int indice) {
-        if (indice >= 0 && indice < nodeY.length) return nodeY[indice];
-        return 0;
-    }
-}
+}//fim da classe GraphPane

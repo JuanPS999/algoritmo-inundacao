@@ -1,16 +1,23 @@
 /* ***************************************************************
 * Autor............: Juan Prado Da Silva
 * Matricula........: 202310291
-* Inicio...........: 03/10/2026
-* Ultima alteracao.: 03/10/2026
+* Inicio...........: 02/10/2026
+* Ultima alteracao.: 06/10/2026
 * Nome.............: SimulationController
-* Funcao...........: Controla a simulacao, AnimationTimer e conexao com GUI.
+* Funcao...........: Liga o painel de controles, o desenho do grafo e o
+*                    Simulator. Um AnimationTimer avanca o tempo
+*                    virtual proporcionalmente ao tempo real decorrido
+*                    e ao fator de velocidade do slider.
 *************************************************************** */
 package controller;
 
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
+import javafx.animation.AnimationTimer;
 import model.ForwardingStrategy;
-import model.Link;
 import model.LatencyProvider;
+import model.Link;
 import model.Packet;
 import model.Simulator;
 import model.Strategy1AllInterfaces;
@@ -20,106 +27,213 @@ import model.Strategy4Custom;
 import view.ControlPanel;
 import view.GraphPane;
 
-import javafx.animation.AnimationTimer;
-import javafx.application.Platform;
-import javafx.scene.layout.Pane;
-import javafx.scene.paint.Color;
-import javafx.scene.text.Text;
-
-/**
- * Controlador que liga os controles (ControlPanel) ao Simulator.
- * Usa AnimationTimer para avan&ccedil;ar o tempo virtual e desenhar pacotes em voo.
- */
 public class SimulationController {
-    private final ControlPanel controlPanel;
-    private final GraphPane graphPane;
-    private Simulator simulator;
 
-    private boolean running = false;
+  // evita salto de tempo depois de uma pausa longa da interface
+  private static final double MAX_FRAME_MS = 100.0;
 
-    public SimulationController(ControlPanel controlPanel, GraphPane graphPane, Simulator simulator) {
-        this.controlPanel = controlPanel;
-        this.graphPane = graphPane;
-        this.simulator = simulator;
-        simulator.setListener(new Simulator.Listener() {
-            @Override
-            public void onTransmit(long time, int fromNode, Link link, Packet packet, long counter) {
-            }
+  private final ControlPanel controlPanel;
+  private final GraphPane graphPane;
+  private final Map<Packet, Integer> origins =
+      new IdentityHashMap<Packet, Integer>();
+  private final AnimationTimer timer;
+  private Simulator simulator;
+  private double virtualClock;
+  private long lastFrameNanos;
+  private boolean paused;
+  private boolean snapshotShown;
+  private boolean showTtl;
 
-            @Override
-            public void onArrive(long time, int nodeId, Link link, Packet packet, long counter) {
-                Platform.runLater(() -> {
-                    if (simulator.hasSnapshot()) {
-                        System.out.println("Snapshot: contador=" + simulator.getSnapshotCounter() + " t=" + simulator.getSnapshotTime());
-                    }
-                });
-            }
-        });
-        startAnimationTimer();
-    }
+  /* ***************************************************************
+  * Metodo: SimulationController
+  * Funcao: construtor; liga os botoes do painel as acoes.
+  * Parametros: controlPanel = painel de controles; graphPane = painel
+  *             do grafo
+  * Retorno: nao se aplica
+  *************************************************************** */
+  public SimulationController(ControlPanel controlPanel,
+      GraphPane graphPane) {
+    this.controlPanel = controlPanel;
+    this.graphPane = graphPane;
+    this.timer = new AnimationTimer() {
+      @Override
+      public void handle(long now) {
+        onFrame(now);
+      }//fim do metodo handle
+    };//fim da classe anonima AnimationTimer
+    controlPanel.setOnStart(() -> start());
+    controlPanel.setOnPause(() -> togglePause());
+    controlPanel.setOnReset(() -> reset());
+    controlPanel.setOnEndpointsChange(() -> updateEndpoints());
+    updateEndpoints();
+  }//fim do construtor SimulationController
 
-    private void startAnimationTimer() {
-        AnimationTimer timer = new AnimationTimer() {
-            @Override
-            public void handle(long now) {
-                if (!running) return;
-                simulator.advanceTo(simulator.getVirtualTime() + 10);
-                drawInFlightPackets();
-                System.out.println("Tempo virtual: " + simulator.getVirtualTime() + " ms");
-            }
-        };
-        timer.start();
-    }
+  /* ***************************************************************
+  * Metodo: updateEndpoints
+  * Funcao: pinta transmissor e receptor conforme a escolha atual.
+  * Parametros: nenhum
+  * Retorno: void
+  *************************************************************** */
+  private void updateEndpoints() {
+    graphPane.setEndpoints(controlPanel.getSourceId(),
+        controlPanel.getDestinationId());
+  }//fim do metodo updateEndpoints
 
-    private void drawInFlightPackets() {
-        for (Simulator.InFlight inflight : simulator.inFlight()) {
-            Packet p = inflight.packet;
-            Link link = inflight.link;
-            double prog = inflight.progress(simulator.getVirtualTime());
-            int fromNode = link.getA();
-            int toNode = link.getB();
-            double x1 = graphPane.getNodeX(fromNode - 1);
-            double y1 = graphPane.getNodeY(fromNode - 1);
-            double x2 = graphPane.getNodeX(toNode - 1);
-            double y2 = graphPane.getNodeY(toNode - 1);
-            double ix = x1 + (x2 - x1) * prog;
-            double iy = y1 + (y2 - y1) * prog;
-            int versao = controlPanel.getCurrentVersion();
-            if (p.getTtl() > 0 && (versao == 3 || versao == 4)) {
-                Text ttText = new Text("TTL=" + p.getTtl());
-                ttText.setFont(javafx.scene.text.Font.font(10));
-                ttText.setFill(Color.BLACK);
-                ttText.setX(ix - ttText.getLayoutBounds().getWidth() / 2);
-                ttText.setY(iy + 15);
-                System.out.printf("Pacote TTL=%d em (%.1f, %.1f)%n", p.getTtl(), ix, iy);
-            }
-        }
-    }
+  /* ***************************************************************
+  * Metodo: createStrategy
+  * Funcao: cria a estrategia de encaminhamento da versao escolhida.
+  * Parametros: version = versao de 1 a 4
+  * Retorno: ForwardingStrategy da versao
+  *************************************************************** */
+  private ForwardingStrategy createStrategy(int version) {
+    switch (version) {
+      case 1:
+        return new Strategy1AllInterfaces();
+      case 2:
+        return new Strategy2ExceptIncoming();
+      case 4:
+        return new Strategy4Custom();
+      default:
+        return new Strategy3Ttl();
+    }//fim do switch
+  }//fim do metodo createStrategy
 
-    public void start() {
-        running = true;
-        int version = controlPanel.getCurrentVersion();
-        int source = controlPanel.getSourceId();
-        int dest = controlPanel.getDestId();
-        int ttl = controlPanel.getTtlValue();
-        model.ForwardingStrategy strategy;
-        switch (version) {
-            case 2: strategy = new model.Strategy2ExceptIncoming(); break;
-            case 3: strategy = new model.Strategy3Ttl(); break;
-            case 4: strategy = new model.Strategy4Custom(); break;
-            default: strategy = new model.Strategy1AllInterfaces();
-        }
-        simulator = new Simulator(graphPane.getGraph(), strategy, new model.LatencyProvider(42), source, dest, ttl);
-        simulator.start();
-        running = true;
-    }
+  /* ***************************************************************
+  * Metodo: start
+  * Funcao: cria uma nova simulacao com as escolhas do painel e inicia
+  *         a animacao. No modo ao vivo nao ha limite de pacotes.
+  * Parametros: nenhum
+  * Retorno: void
+  *************************************************************** */
+  private void start() {
+    int sourceId = controlPanel.getSourceId();
+    int destinationId = controlPanel.getDestinationId();
+    if (sourceId == destinationId) {
+      controlPanel.setStatus("Escolha transmissor e receptor diferentes.");
+      return;
+    }//fim do if
+    timer.stop();
+    int version = controlPanel.getVersion();
+    showTtl = (version >= 3);
+    origins.clear();
+    simulator = new Simulator(graphPane.getGraph(), createStrategy(version),
+        new LatencyProvider(System.nanoTime()), sourceId, destinationId,
+        controlPanel.getTtl());
+    simulator.setListener(new Simulator.Listener() {
+      @Override
+      public void onTransmit(long time, int fromNode, Link link,
+          Packet packet, long counter) {
+        origins.put(packet, Integer.valueOf(fromNode));
+      }//fim do metodo onTransmit
 
-    public void stop() {
-        running = false;
-    }
+      @Override
+      public void onArrive(long time, int nodeId, Link link,
+          Packet packet, long counter) {
+        origins.remove(packet);
+      }//fim do metodo onArrive
+    });//fim da classe anonima Listener
+    virtualClock = 0.0;
+    lastFrameNanos = 0L;
+    paused = false;
+    snapshotShown = false;
+    graphPane.setEndpoints(sourceId, destinationId);
+    graphPane.setDestinationReached(false);
+    graphPane.clearPackets();
+    controlPanel.resetDisplay();
+    controlPanel.setRunning(true);
+    controlPanel.setPaused(false);
+    controlPanel.setStatus("Simulacao em andamento.");
+    simulator.start();
+    refreshView();
+    timer.start();
+  }//fim do metodo start
 
-    public void reset() {
-        running = false;
-        System.out.println("Simulacao resetada");
-    }
-}
+  /* ***************************************************************
+  * Metodo: togglePause
+  * Funcao: pausa ou continua a simulacao sem perder o estado.
+  * Parametros: nenhum
+  * Retorno: void
+  *************************************************************** */
+  private void togglePause() {
+    if (simulator == null) {
+      return;
+    }//fim do if
+    paused = !paused;
+    lastFrameNanos = 0L;
+    controlPanel.setPaused(paused);
+    controlPanel.setStatus(paused ? "Pausado." : "Simulacao em andamento.");
+  }//fim do metodo togglePause
+
+  /* ***************************************************************
+  * Metodo: reset
+  * Funcao: interrompe a simulacao e limpa a tela.
+  * Parametros: nenhum
+  * Retorno: void
+  *************************************************************** */
+  private void reset() {
+    timer.stop();
+    simulator = null;
+    origins.clear();
+    paused = false;
+    graphPane.clearPackets();
+    graphPane.setDestinationReached(false);
+    controlPanel.resetDisplay();
+    controlPanel.setRunning(false);
+    controlPanel.setPaused(false);
+    controlPanel.setStatus("Pronto.");
+  }//fim do metodo reset
+
+  /* ***************************************************************
+  * Metodo: onFrame
+  * Funcao: a cada quadro, avanca o tempo virtual pelo tempo real
+  *         decorrido vezes o fator de velocidade e atualiza a tela.
+  * Parametros: now = instante do quadro em nanossegundos
+  * Retorno: void
+  *************************************************************** */
+  private void onFrame(long now) {
+    if (simulator == null) {
+      return;
+    }//fim do if
+    if (paused || lastFrameNanos == 0L) {
+      lastFrameNanos = now;
+      return;
+    }//fim do if
+    double elapsedMillis = (now - lastFrameNanos) / 1000000.0;
+    lastFrameNanos = now;
+    if (elapsedMillis > MAX_FRAME_MS) {
+      elapsedMillis = MAX_FRAME_MS;
+    }//fim do if
+    virtualClock += elapsedMillis * controlPanel.getSpeed();
+    simulator.advanceTo((long) virtualClock);
+    refreshView();
+  }//fim do metodo onFrame
+
+  /* ***************************************************************
+  * Metodo: refreshView
+  * Funcao: atualiza contador, pacotes em transito e snapshot; encerra
+  *         a animacao quando nao ha mais pacotes na rede.
+  * Parametros: nenhum
+  * Retorno: void
+  *************************************************************** */
+  private void refreshView() {
+    long clock = (long) virtualClock;
+    List<Simulator.InFlight> flights = simulator.inFlight();
+    controlPanel.setCounter(simulator.getPacketsGenerated());
+    controlPanel.setVirtualTime(clock);
+    graphPane.showPackets(flights, clock, origins, showTtl);
+    if (simulator.hasSnapshot() && !snapshotShown) {
+      snapshotShown = true;
+      controlPanel.showSnapshot(simulator.getSnapshotCounter(),
+          simulator.getSnapshotTime());
+      graphPane.setDestinationReached(true);
+    }//fim do if
+    if (flights.isEmpty()) {
+      timer.stop();
+      controlPanel.setRunning(false);
+      controlPanel.setStatus(snapshotShown
+          ? "Encerrada: nao ha mais pacotes na rede."
+          : "Encerrada sem atingir o destino (rede esvaziou).");
+    }//fim do if
+  }//fim do metodo refreshView
+
+}//fim da classe SimulationController
