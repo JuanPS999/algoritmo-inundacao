@@ -15,6 +15,8 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import javafx.animation.AnimationTimer;
+import javafx.application.Platform;
+import javafx.concurrent.Task;
 import model.ForwardingStrategy;
 import model.LatencyProvider;
 import model.Link;
@@ -64,6 +66,7 @@ public class SimulationController {
     controlPanel.setOnPause(() -> togglePause());
     controlPanel.setOnReset(() -> reset());
     controlPanel.setOnEndpointsChange(() -> updateEndpoints());
+    controlPanel.setOnBatch(() -> runBatch());
     updateEndpoints();
   }//fim do construtor SimulationController
 
@@ -217,4 +220,78 @@ public class SimulationController {
     }//fim do if
   }//fim do metodo refreshView
 
+  /* ***************************************************************
+  * Metodo: runBatch
+  * Funcao: executa o lote de simulacoes em thread de fundo.
+  * Parametros: nenhum
+  * Retorno: void
+  *************************************************************** */
+  private void runBatch() {
+    final int version = controlPanel.getVersion();
+    final int sourceId = controlPanel.getSourceId();
+    final int destinationId = controlPanel.getDestinationId();
+    final int ttl = controlPanel.getTtl();
+    final int count = controlPanel.getBatchCount();
+
+    if (sourceId == destinationId) {
+      controlPanel.setStatus("Escolha transmissor e receptor diferentes.");
+      return;
+    }
+
+    controlPanel.setRunning(true);
+    controlPanel.setStatus("Executando lote...");
+    controlPanel.setBatchProgress(0, count);
+
+    Task<Void> task = new Task<Void>() {
+      @Override
+      protected Void call() {
+        long baseSeed = 42L;
+        for (int i = 0; i < count; i++) {
+            if (isCancelled()) {
+                break;
+            }
+            final long seed = baseSeed + i;
+            final int current = i + 1;
+
+            controller.BatchResult result = controller.BatchRunner.run(
+                graphPane.getGraph(), version, sourceId, destinationId, ttl, 1, seed);
+
+            if (result.getSamples().size() > 0) {
+                final long snapshot = result.getSamples().get(0);
+                Platform.runLater(() -> {
+                    resultsTable.addResult(version, snapshot);
+                    controlPanel.setBatchProgress(current, count);
+                });
+            } else {
+                Platform.runLater(() -> {
+                    controlPanel.setBatchProgress(current, count);
+                });
+            }
+        }
+        return null;
+      }
+
+      @Override
+      protected void succeeded() {
+        controlPanel.setRunning(false);
+        controlPanel.setStatus("Lote concluido.");
+      }
+
+      @Override
+      protected void failed() {
+        controlPanel.setRunning(false);
+        controlPanel.setStatus("Erro no lote: " + getException().getMessage());
+      }
+
+      @Override
+      protected void cancelled() {
+        controlPanel.setRunning(false);
+        controlPanel.setStatus("Lote cancelado.");
+      }
+    };
+
+    Thread thread = new Thread(task);
+    thread.setDaemon(true);
+    thread.start();
+  }//fim do metodo runBatch
 }//fim da classe SimulationController
