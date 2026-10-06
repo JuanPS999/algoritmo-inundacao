@@ -16,10 +16,14 @@ import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
+import javafx.scene.control.Menu;
+import javafx.scene.control.MenuBar;
+import javafx.scene.control.MenuItem;
 import javafx.scene.layout.BorderPane;
 import javafx.stage.Stage;
 import model.Graph;
 import util.BackboneLoader;
+import view.AboutDialog;
 import view.ResultsTable;
 
 public class FloodingApp extends Application {
@@ -58,8 +62,23 @@ public class FloodingApp extends Application {
     GraphPane graphPane = new GraphPane(graph);
     ControlPanel controlPanel = new ControlPanel(graph);
     ResultsTable resultsTable = new ResultsTable();
-    new SimulationController(controlPanel, graphPane, resultsTable);
+    SimulationController controller = new SimulationController(controlPanel, graphPane, resultsTable);
     BorderPane root = new BorderPane();
+
+    MenuBar menuBar = new MenuBar();
+    Menu fileMenu = new Menu("Arquivo");
+    MenuItem exitItem = new MenuItem("Sair");
+    exitItem.setOnAction(e -> Platform.exit());
+    fileMenu.getItems().add(exitItem);
+
+    Menu helpMenu = new Menu("Ajuda");
+    MenuItem aboutItem = new MenuItem("Sobre");
+    aboutItem.setOnAction(e -> AboutDialog.show());
+    helpMenu.getItems().add(aboutItem);
+
+    menuBar.getMenus().addAll(fileMenu, helpMenu);
+
+    root.setTop(menuBar);
     root.setCenter(graphPane);
     root.setRight(controlPanel);
     root.setBottom(resultsTable.getNode());
