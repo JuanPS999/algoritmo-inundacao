@@ -9,7 +9,10 @@
 package controller;
 
 import model.ForwardingStrategy;
+import model.Link;
 import model.LatencyProvider;
+import model.Packet;
+import model.Simulator;
 import model.Strategy1AllInterfaces;
 import model.Strategy2ExceptIncoming;
 import model.Strategy3Ttl;
