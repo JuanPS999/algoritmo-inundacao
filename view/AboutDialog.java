@@ -19,7 +19,10 @@ import javafx.scene.control.Alert.AlertType;
 public final class AboutDialog {
 
     public static final String OPTION4_TEXT =
-        "Opcao 4: ainda nao definida; a V4 delega a V3.";
+        "Versao 4: Flooding com deduplicacao por janela de tempo por no. "
+        + "Cada no mantem o instante da ultima observacao de cada messageId. "
+        + "Se uma copia chegar dentro da janela configurada, e descartada como "
+        + "duplicata. Duplicatas nao renovam o registro. Janela 0 equivale a V3.";
 
     private AboutDialog() {
     }

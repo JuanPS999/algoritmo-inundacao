@@ -19,7 +19,9 @@ import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.SplitPane;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import model.Graph;
@@ -64,6 +66,7 @@ public class FloodingApp extends Application {
         GraphPane graphPane = new GraphPane(graph);
         ControlPanel controlPanel = new ControlPanel(graph);
         ResultsTable resultsTable = new ResultsTable();
+        ComparisonChart comparisonChart = new ComparisonChart(resultsTable);
         EventLogPane eventLogPane = new EventLogPane();
 
         SimulationController controller = new SimulationController(controlPanel, graphPane, resultsTable);
@@ -73,6 +76,9 @@ public class FloodingApp extends Application {
             eventLogPane.addLines(lines);
             eventLogPane.setDroppedCount(controller.getDroppedLogLines());
         });
+
+        // Liga callback de mudanca da tabela para redesenhar grafico
+        resultsTable.setOnChange(() -> comparisonChart.redraw());
 
         // Liga botao Sortear semente
         controlPanel.setOnRandomSeed(() -> {
@@ -85,6 +91,19 @@ public class FloodingApp extends Application {
         // Liga botao passo a passo
         controlPanel.setOnStep(() -> controller.step());
 
+        // Liga redesenho do grafico apos mudancas na tabela
+        // O ResultsTable nao tem listener, entao o ComparisonChart
+        // sera notificado via wrapper nos metodos addResult/addFailure/clear
+        // Por simplicidade, vamos fazer o ComparisonChart observar
+        // chamando redraw() apos cada operacao na tabela.
+        // O ResultsTable ja tem refresh() nos metodos, entao podemos
+        // estender ou usar um callback. Vamos usar uma abordagem simples:
+        // o ComparisonChart redesenha quando a tabela e atualizada.
+        // Para isso, vamos adicionar um listener no ResultsTable ou
+        // chamar redraw() do controller apos cada addResult/addFailure.
+        // Aqui vamos apenas criar o grafico; o controller nao conhece o grafico.
+        // Vamos fazer o ResultsTable notificar o ComparisonChart via callback.
+
         BorderPane root = new BorderPane();
 
         MenuBar menuBar = new MenuBar();
@@ -96,6 +115,7 @@ public class FloodingApp extends Application {
                 graphPane.setGraph(newGraph);
                 controlPanel.updateForNewGraph(newGraph);
                 resultsTable.clear();
+                comparisonChart.redraw();
                 eventLogPane.clear();
                 controller.reset();
                 controlPanel.setStatus("Backbone recarregado.");
@@ -118,9 +138,16 @@ public class FloodingApp extends Application {
 
         menuBar.getMenus().addAll(fileMenu, helpMenu);
 
-        // Layout: grafo no centro, controis a direita, log embaixo, tabela mais embaixo
+        // Area inferior: log em cima, tabela + grafico lado a lado embaixo
+        HBox tableAndChart = new HBox(8.0);
+        tableAndChart.getChildren().addAll(resultsTable.getNode(), comparisonChart);
+        HBox.setHgrow(resultsTable.getNode(), javafx.scene.layout.Priority.ALWAYS);
+        HBox.setHgrow(comparisonChart, javafx.scene.layout.Priority.ALWAYS);
+
         VBox bottomBox = new VBox(4.0);
-        bottomBox.getChildren().addAll(eventLogPane, resultsTable.getNode());
+        bottomBox.getChildren().addAll(eventLogPane, tableAndChart);
+        VBox.setVgrow(eventLogPane, javafx.scene.layout.Priority.ALWAYS);
+        VBox.setVgrow(tableAndChart, javafx.scene.layout.Priority.ALWAYS);
 
         root.setTop(menuBar);
         root.setCenter(graphPane);

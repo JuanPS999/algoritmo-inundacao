@@ -486,9 +486,12 @@ public class SimulationController {
         if (flights.isEmpty()) {
             timer.stop();
             controlPanel.setRunning(false);
-            controlPanel.setStatus(snapshotShown
-                    ? "Encerrada: nao ha mais pacotes na rede."
-                    : "Encerrada sem atingir o destino (rede esvaziou).");
+            if (snapshotShown) {
+                controlPanel.setStatus("Encerrada: nao ha mais pacotes na rede.");
+            } else {
+                controlPanel.setStatus("Encerrada sem atingir o destino (rede esvaziou).");
+                resultsTable.addFailure(controlPanel.getVersion(), "INALCANCAVEL");
+            }
         }//fim do if
     }//fim do metodo refreshView
 
@@ -534,6 +537,16 @@ public class SimulationController {
                         final long snapshot = result.getSamples().get(0);
                         Platform.runLater(() -> {
                             resultsTable.addResult(version, snapshot);
+                            controlPanel.setBatchProgress(current, count);
+                        });
+                    } else if (result.getAborted() > 0) {
+                        Platform.runLater(() -> {
+                            resultsTable.addFailure(version, "ABORTADA");
+                            controlPanel.setBatchProgress(current, count);
+                        });
+                    } else if (result.getUnreachable() > 0) {
+                        Platform.runLater(() -> {
+                            resultsTable.addFailure(version, "INALCANCAVEL");
                             controlPanel.setBatchProgress(current, count);
                         });
                     } else {
