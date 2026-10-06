@@ -1,0 +1,130 @@
+# Roteamento por Inundacao - Redes de Computadores II (UESB)
+
+Trabalho academico: implementacao de 4 versoes de roteamento por inundacao
+com GUI em JavaFX e medicao de pacotes gerados ate o destino.
+
+## Requisitos
+- JDK 1.8.0_351 com JavaFX embutido (jre/lib/ext/jfxrt.jar)
+- `javac -version` deve mostrar 1.8.x
+
+## Build e Execucao
+
+### Compilar
+```bash
+./build.sh
+```
+Compila todos os .java para a pasta `build/`.
+
+### GUI (modo ao vivo)
+```bash
+./run.sh
+```
+Janela com grafo, controles, tabela de resultados e menu.
+- ComboBox versao (1 a 4), transmissor, receptor
+- Spinner TTL (versoes 3 e 4), Slider velocidade (0.25x a 10x)
+- Botoes: Iniciar, Pausar, Resetar
+- Spinner N (default 30), botao "Executar N vezes" (modo lote)
+- Clique em aresta: alterna habilitado/desabilitado (vermelho tracejado)
+- Transmissor verde, receptor azul (laranja quando atingido)
+- Contador ao vivo e snapshot na primeira chegada
+- Tabela V1-V4: Ultima, N, Media, Desvio
+
+### Console (execucao unica)
+```bash
+java -cp build util.ConsoleRunner <versao> <origem> <destino> <ttl> <semente>
+```
+Exemplo:
+```bash
+java -cp build util.ConsoleRunner 3 1 4 3 42
+```
+Imprime eventos (transmissao/chegada) e snapshot final.
+
+### Lote em linha de comando (todas versoes)
+```bash
+java -cp build util.BatchConsole <n> <origem> <destino> <ttl> <sementeBase> [backbone]
+```
+Exemplo:
+```bash
+java -cp build util.BatchConsole 30 1 4 3 42
+```
+Imprime CSV: Versao,Validas,Abortadas,Inalcancaveis,Media,DesvioPadrao
+
+## Formato do backbone.txt
+```
+N;
+A;B;PESO
+...
+```
+- Primeira linha: numero de nos (pode terminar com `;`)
+- Demais linhas: aresta nao direcionada (listada uma vez)
+- Exemplo (grafo Tanenbaum, 8 nos):
+```
+8;
+1;2;2
+1;7;6
+2;3;7
+2;5;2
+3;6;3
+3;4;3
+4;8;2
+5;7;1
+5;6;2
+6;8;2
+7;8;4
+```
+- Rotulos na GUI: 1->A, 2->B, ... (interno usa numericos 1..N)
+
+## Versoes do Algoritmo
+- **V1**: Cada pacote que chega e enviado por TODAS as interfaces.
+- **V2**: Igual a V1, EXCETO pela interface de chegada.
+- **V3**: Igual a V2, mais verificacao/decremento de TTL (descarte se TTL <= 0).
+- **V4**: Stub que delega a V3 (otimizacao nao definida).
+
+## Modo Lote (GUI)
+- Botao "Executar N vezes" roda N execucoes (default 30) em thread daemon.
+- Semente base fixa 42 + i para cada execucao.
+- Sem animacao; usa BatchRunner.
+- Execucoes validas (destino atingido) vao para a tabela (Media, Desvio).
+- Abortadas (limite 2M pacotes) e inalcançaveis (fila vazia) ficam FORA da media.
+- Botao desabilitado durante o lote; reabilitado ao fim (sucesso ou erro).
+
+## Tempo Virtual
+- Nucleo pull-based: PriorityQueue por instante de chegada, desempate FIFO.
+- Sem Thread.sleep, sem thread por pacote/roteador.
+- Latencia por transmissao: inteiro aleatorio [1, 500] ms (peso da aresta NAO influencia).
+- TTL default = diametro do grafo em saltos (BFS), editavel na GUI.
+
+## Estrutura MVC
+```
+Principal.java          main (pacote default)
+backbone.txt            topologia
+build.sh / run.sh       scripts
+.gitignore              build/, *.class
+model/                  Graph, Node, Link, Packet, Simulator,
+                        ForwardingStrategy, Strategies, LatencyProvider, RunResult
+controller/             SimulationController, BatchRunner, BatchResult,
+                        StrategyFactory
+view/                   FloodingApp, GraphPane, ControlPanel,
+                        ResultsTable, AboutDialog
+util/                   BackboneLoader, ConsoleRunner, BatchConsole,
+                        Statistics, GraphInfo
+```
+
+## Testes com Timeout (obrigatorio)
+```bash
+# ConsoleRunner (deve terminar)
+timeout -k 2 20 java -Xmx512m -cp build util.ConsoleRunner 3 1 4 3 42
+
+# BatchConsole (30 execucoes x 4 versoes)
+timeout -k 2 60 java -Xmx512m -cp build util.BatchConsole 30 1 4 3 42
+
+# GUI (apenas verifica inicio)
+timeout 8 ./run.sh   # codigo 124 sem excecao = sucesso
+```
+
+## Padronizacao de Codigo
+- Cabecalho fixo em todo .java (autor, matricula, datas, nome, funcao)
+- Bloco de metodo antes de cada metodo/construtor
+- Indentacao 2 espacos, chaves K&R, comentario de fechamento
+- Linhas <= 80 colunas, sem acentos em comentarios e Strings
+- Java 8 apenas (sem var, records, List.of, text blocks, etc.)
