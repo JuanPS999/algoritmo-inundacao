@@ -22,6 +22,7 @@ import model.Packet;
 import model.Simulator;
 import view.ControlPanel;
 import view.GraphPane;
+import view.ResultsTable;
 
 public class SimulationController {
 
@@ -30,6 +31,7 @@ public class SimulationController {
 
   private final ControlPanel controlPanel;
   private final GraphPane graphPane;
+  private final ResultsTable resultsTable;
   private final Map<Packet, Integer> origins =
       new IdentityHashMap<Packet, Integer>();
   private final AnimationTimer timer;
@@ -44,13 +46,14 @@ public class SimulationController {
   * Metodo: SimulationController
   * Funcao: construtor; liga os botoes do painel as acoes.
   * Parametros: controlPanel = painel de controles; graphPane = painel
-  *             do grafo
+  *             do grafo; resultsTable = tabela de resultados
   * Retorno: nao se aplica
   *************************************************************** */
   public SimulationController(ControlPanel controlPanel,
-      GraphPane graphPane) {
+      GraphPane graphPane, ResultsTable resultsTable) {
     this.controlPanel = controlPanel;
     this.graphPane = graphPane;
+    this.resultsTable = resultsTable;
     this.timer = new AnimationTimer() {
       @Override
       public void handle(long now) {
@@ -202,6 +205,7 @@ public class SimulationController {
       snapshotShown = true;
       controlPanel.showSnapshot(simulator.getSnapshotCounter(),
           simulator.getSnapshotTime());
+      resultsTable.addResult(controlPanel.getVersion(), simulator.getSnapshotCounter());
       graphPane.setDestinationReached(true);
     }//fim do if
     if (flights.isEmpty()) {

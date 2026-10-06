@@ -20,6 +20,7 @@ import javafx.scene.layout.BorderPane;
 import javafx.stage.Stage;
 import model.Graph;
 import util.BackboneLoader;
+import view.ResultsTable;
 
 public class FloodingApp extends Application {
 
@@ -56,10 +57,12 @@ public class FloodingApp extends Application {
     }//fim do catch
     GraphPane graphPane = new GraphPane(graph);
     ControlPanel controlPanel = new ControlPanel(graph);
-    new SimulationController(controlPanel, graphPane);
+    ResultsTable resultsTable = new ResultsTable();
+    new SimulationController(controlPanel, graphPane, resultsTable);
     BorderPane root = new BorderPane();
     root.setCenter(graphPane);
     root.setRight(controlPanel);
+    root.setBottom(resultsTable.getNode());
     stage.setTitle("Roteamento por Inundacao");
     stage.setScene(new Scene(root, 1100.0, 650.0));
     stage.show();
