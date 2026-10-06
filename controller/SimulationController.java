@@ -77,12 +77,12 @@ public class SimulationController {
                 onFrame(now);
             }//fim do metodo handle
         };//fim da classe anonima AnimationTimer
-        controlPanel.setOnStart(() -> start());
-        controlPanel.setOnPause(() -> togglePause());
-        controlPanel.setOnReset(() -> reset());
-        controlPanel.setOnEndpointsChange(() -> updateEndpoints());
-        controlPanel.setOnBatch(() -> runBatch());
-        controlPanel.setOnStep(() -> step());
+        controlPanel.setOnStart(this::start);
+        controlPanel.setOnPause(this::togglePause);
+        controlPanel.setOnReset(this::reset);
+        controlPanel.setOnEndpointsChange(this::updateEndpoints);
+        controlPanel.setOnBatch(this::runBatch);
+        controlPanel.setOnStep(this::step);
         updateEndpoints();
     }//fim do construtor SimulationController
 
@@ -128,6 +128,103 @@ public class SimulationController {
     }//fim do metodo getDroppedLogLines
 
     /* ***************************************************************
+    * Metodo: onVersionChanged
+    * Funcao: chamado quando a versao muda; atualiza flag showTtl.
+    * Parametros: version = nova versao (1 a 4)
+    * Retorno: void
+    *************************************************************** */
+    public void onVersionChanged(int version) {
+        showTtl = (version >= 3);
+        if (simulator != null && !paused) {
+            // reinicia simulacao com nova versao se estiver rodando
+            start();
+        }
+    }//fim do metodo onVersionChanged
+
+    /* ***************************************************************
+    * Metodo: onSourceChanged
+    * Funcao: chamado quando o transmissor muda; atualiza endpoints.
+    * Parametros: source = novo id do transmissor
+    * Retorno: void
+    *************************************************************** */
+    public void onSourceChanged(int source) {
+        updateEndpoints();
+        if (simulator != null && !paused) {
+            start();
+        }
+    }//fim do metodo onSourceChanged
+
+    /* ***************************************************************
+    * Metodo: onTargetChanged
+    * Funcao: chamado quando o receptor muda; atualiza endpoints.
+    * Parametros: target = novo id do receptor
+    * Retorno: void
+    *************************************************************** */
+    public void onTargetChanged(int target) {
+        updateEndpoints();
+        if (simulator != null && !paused) {
+            start();
+        }
+    }//fim do metodo onTargetChanged
+
+    /* ***************************************************************
+    * Metodo: onTtlChanged
+    * Funcao: chamado quando o TTL muda.
+    * Parametros: ttl = novo valor de TTL
+    * Retorno: void
+    *************************************************************** */
+    public void onTtlChanged(int ttl) {
+        if (simulator != null && !paused) {
+            start();
+        }
+    }//fim do metodo onTtlChanged
+
+    /* ***************************************************************
+    * Metodo: onWindowChanged
+    * Funcao: chamado quando a janela V4 muda.
+    * Parametros: windowMs = novo valor da janela em ms
+    * Retorno: void
+    *************************************************************** */
+    public void onWindowChanged(int windowMs) {
+        if (simulator != null && !paused) {
+            start();
+        }
+    }//fim do metodo onWindowChanged
+
+    /* ***************************************************************
+    * Metodo: onSpeedChanged
+    * Funcao: chamado quando a velocidade muda.
+    * Parametros: speed = novo fator de velocidade
+    * Retorno: void
+    *************************************************************** */
+    public void onSpeedChanged(double speed) {
+        // velocidade e aplicada no onFrame; nada a fazer aqui
+    }//fim do metodo onSpeedChanged
+
+    /* ***************************************************************
+    * Metodo: onSeedChanged
+    * Funcao: chamado quando a semente muda.
+    * Parametros: seed = nova semente
+    * Retorno: void
+    *************************************************************** */
+    public void onSeedChanged(long seed) {
+        this.seed = seed;
+        if (simulator != null && !paused) {
+            start();
+        }
+    }//fim do metodo onSeedChanged
+
+    /* ***************************************************************
+    * Metodo: onLogScaleChanged
+    * Funcao: chamado quando a escala log muda.
+    * Parametros: logScale = true se escala log ativada
+    * Retorno: void
+    *************************************************************** */
+    public void onLogScaleChanged(boolean logScale) {
+        resultsTable.setLogScale(logScale);
+    }//fim do metodo onLogScaleChanged
+
+    /* ***************************************************************
     * Metodo: updateEndpoints
     * Funcao: pinta transmissor e receptor conforme a escolha atual.
     * Parametros: nenhum
@@ -145,7 +242,7 @@ public class SimulationController {
     * Parametros: nenhum
     * Retorno: void
     *************************************************************** */
-    private void start() {
+    public void start() {
         int sourceId = controlPanel.getSourceId();
         int destinationId = controlPanel.getDestinationId();
         if (sourceId == destinationId) {
@@ -309,7 +406,7 @@ public class SimulationController {
     * Parametros: nenhum
     * Retorno: void
     *************************************************************** */
-    private void togglePause() {
+    public void togglePause() {
         if (simulator == null) {
             return;
         }//fim do if

@@ -1,685 +1,854 @@
 /* ***************************************************************
 * Autor............: Juan Prado Da Silva
 * Matricula........: 202310291
-* Inicio...........: 02/10/2026
+* Inicio...........: 01/10/2026
 * Ultima alteracao.: 06/10/2026
 * Nome.............: ControlPanel
-* Funcao...........: Painel lateral com os controles da simulacao
-*                    organizados em secoes: Cenario, Execucao, Lote.
+* Funcao...........: Painel de controle com botoes, seletores e configuracoes
 *************************************************************** */
 package view;
 
+import controller.SimulationController;
+import java.util.function.Consumer;
+import javafx.application.Platform;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 import javafx.scene.control.TextField;
-import javafx.scene.control.Tooltip;
+import javafx.scene.layout.ColumnConstraints;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import model.Graph;
 
 public class ControlPanel extends VBox {
+  private SimulationController controller;
+  private final Graph graph;
 
-    private static final String[] VERSION_NAMES = {
-        "1 - Todas as interfaces",
-        "2 - Exceto a de chegada",
-        "3 - Exceto a de chegada + TTL",
-        "4 - Versao 3 + otimizacao"
-    };
-    private static final String NO_SNAPSHOT = "Destino ainda nao atingido";
+  private ComboBox<Integer> versionCombo;
+  private ComboBox<Integer> sourceCombo;
+  private ComboBox<Integer> targetCombo;
+  private Spinner<Integer> ttlSpinner;
+  private Spinner<Integer> windowSpinner;
+  private Spinner<Integer> batchCountSpinner;
+  private Slider speedSlider;
+  private TextField seedField;
+  private TextField replayField;
+  private Button startBtn;
+  private Button pauseBtn;
+  private Button resetBtn;
+  private Button stepBtn;
+  private Button randomSeedBtn;
+  private Button copyReplayBtn;
+  private CheckBox logScaleCheck;
 
-    private final ComboBox<String> versionBox = new ComboBox<String>();
-    private final ComboBox<String> sourceBox = new ComboBox<String>();
-    private final ComboBox<String> destinationBox = new ComboBox<String>();
-    private final Spinner<Integer> ttlSpinner = new Spinner<Integer>();
-    private final Spinner<Integer> batchCountSpinner = new Spinner<Integer>();
-    private final Spinner<Integer> windowSpinner = new Spinner<Integer>();
-    private final Slider speedSlider = new Slider(0.25, 10.0, 2.0);
-    private final Label speedLabel = new Label();
-    private final Button startButton = new Button("Iniciar");
-    private final Button pauseButton = new Button("Pausar");
-    private final Button resetButton = new Button("Resetar");
-    private final Button stepButton = new Button("Proximo evento");
-    private final Button batchButton = new Button("Executar N vezes");
-    private final Button randomSeedButton = new Button("Sortear");
-    private final Label counterLabel = new Label();
-    private final Label timeLabel = new Label();
-    private final Label snapshotLabel = new Label(NO_SNAPSHOT);
-    private final Label statusLabel = new Label("Pronto.");
-    private final Label batchProgressLabel = new Label("0/0");
-    private final Label nextEventLabel = new Label("Fila vazia");
-    private final TextField seedField = new TextField();
-    private final TextField replayField = new TextField();
+  // Callbacks para compatibilidade com controller antigo
+  private Runnable onStartCallback;
+  private Runnable onPauseCallback;
+  private Runnable onResetCallback;
+  private Runnable onEndpointsChangeCallback;
+  private Runnable onBatchCallback;
+  private Runnable onStepCallback;
+  private Runnable onRandomSeedCallback;
 
-    private long currentSeed = System.nanoTime();
-    private boolean running = false;
-    private boolean paused = false;
+  // Labels do overlay
+  private Label overlayPacketsLabel;
+  private Label overlayTimeLabel;
+  private Label overlaySnapshotLabel;
 
-    // Labels de overlay no grafo (atualizados pelo controller)
-    private Label overlayPackets = null;
-    private Label overlayTime = null;
-    private Label overlaySnapshot = null;
+  public ControlPanel(SimulationController controller, Graph graph) {
+    this.controller = controller;
+    this.graph = graph;
+    getStyleClass().add("control-panel");
+    setSpacing(16);
+    setPadding(new Insets(12));
+    setMinWidth(360);
+    setPrefWidth(360);
+    setMaxWidth(360);
+    build();
+  }
 
-    /* ***************************************************************
-    * Metodo: ControlPanel
-    * Funcao: construtor; monta todos os controis em secoes.
-    * Parametros: graph = grafo (rotulos dos nos e diametro para o TTL)
-    * Retorno: nao se aplica
-    *************************************************************** */
-    public ControlPanel(Graph graph) {
-        super(8.0);
-        setPadding(new Insets(12.0));
-        setPrefWidth(320.0);
-        getStyleClass().add("secao");
+  /* ***************************************************************
+  * Metodo: setController
+  * Funcao: Define o controller (para criacao tardia).
+  * Parametros: controller - SimulationController
+  * Retorno: void
+  *************************************************************** */
+  public void setController(SimulationController controller) {
+    this.controller = controller;
+  }
 
-        // Inicializa controles
-        initControls(graph);
-        buildLayout();
-        setupListeners();
-        resetDisplay();
-    }//fim do construtor ControlPanel
+  /* ***************************************************************
+  * Metodo: build
+  * Funcao: Constrói a interface do painel de controle
+  * Parametros: nenhum
+  * Retorno: void
+  *************************************************************** */
+  private void build() {
+    // Abas
+    TabPane tabPane = new TabPane();
+    tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+    tabPane.getStyleClass().add("control-tabpane");
 
-    /* ***************************************************************
-    * Metodo: initControls
-    * Funcao: inicializa todos os controles com valores padrao.
-    * Parametros: graph = grafo
-    * Retorno: void
-    *************************************************************** */
-    private void initControls(Graph graph) {
-        for (int i = 0; i < VERSION_NAMES.length; i++) {
-            versionBox.getItems().add(VERSION_NAMES[i]);
-        }
-        versionBox.getSelectionModel().select(2);
-        versionBox.setMaxWidth(Double.MAX_VALUE);
-        versionBox.setTooltip(new Tooltip("Versao do algoritmo de flooding"));
+    // Aba Cenario
+    Tab scenarioTab = new Tab("Cenario");
+    scenarioTab.setContent(createScenarioTab());
+    tabPane.getTabs().add(scenarioTab);
 
-        for (int id = 1; id <= graph.getNodeCount(); id++) {
-            String label = graph.getNode(id).getLabel();
-            sourceBox.getItems().add(label);
-            destinationBox.getItems().add(label);
-        }
-        sourceBox.getSelectionModel().select(0);
-        destinationBox.getSelectionModel().select(
-                Math.min(3, graph.getNodeCount() - 1));
-        sourceBox.setMaxWidth(Double.MAX_VALUE);
-        sourceBox.setTooltip(new Tooltip("No transmissor"));
-        destinationBox.setMaxWidth(Double.MAX_VALUE);
-        destinationBox.setTooltip(new Tooltip("No receptor"));
+    // Aba Execucao
+    Tab executionTab = new Tab("Execucao");
+    executionTab.setContent(createExecutionTab());
+    tabPane.getTabs().add(executionTab);
 
-        ttlSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(
-                1, 99, Math.max(1, graph.diameter())));
-        ttlSpinner.setEditable(true);
-        ttlSpinner.setMaxWidth(Double.MAX_VALUE);
-        ttlSpinner.setTooltip(new Tooltip("TTL inicial (versoes 3 e 4)"));
+    // Aba Resultados
+    Tab resultsTab = new Tab("Resultados");
+    resultsTab.setContent(createResultsTab());
+    tabPane.getTabs().add(resultsTab);
 
-        batchCountSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(
-                1, 1000, 30));
-        batchCountSpinner.setEditable(true);
-        batchCountSpinner.setMaxWidth(Double.MAX_VALUE);
-        batchCountSpinner.setTooltip(new Tooltip("Numero de execucoes do lote"));
+    getChildren().add(tabPane);
+    VBox.setVgrow(tabPane, Priority.ALWAYS);
+  }
 
-        windowSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(
-                0, 10000, 1000));
-        windowSpinner.setEditable(true);
-        windowSpinner.setMaxWidth(Double.MAX_VALUE);
-        windowSpinner.setDisable(true);
-        windowSpinner.setTooltip(new Tooltip("Janela de deduplicacao V4 (ms)"));
+  /* ***************************************************************
+  * Metodo: createScenarioTab
+  * Funcao: Cria a aba de cenario com versao, origem, destino, TTL, janela
+  * Parametros: nenhum
+  * Retorno: VBox com o conteudo da aba
+  *************************************************************** */
+  private VBox createScenarioTab() {
+    VBox box = new VBox(12);
+    box.getStyleClass().add("secao");
+    box.setPadding(new Insets(12));
+    box.setFillWidth(true);
 
-        speedSlider.setMaxWidth(Double.MAX_VALUE);
-        speedSlider.setTooltip(new Tooltip("Velocidade da animacao (0.25x a 10x)"));
-
-        seedField.setMaxWidth(Double.MAX_VALUE);
-        seedField.setText(String.valueOf(currentSeed));
-        seedField.setTooltip(new Tooltip("Semente para geracao de latencias"));
-
-        replayField.setMaxWidth(Double.MAX_VALUE);
-        replayField.setEditable(false);
-        replayField.setTooltip(new Tooltip("Comando para reproduzir no console"));
-
-        startButton.getStyleClass().add("primario");
-        startButton.setMaxWidth(Double.MAX_VALUE);
-        startButton.setTooltip(new Tooltip("Inicia nova simulacao"));
-
-        pauseButton.setDisable(true);
-        pauseButton.setMaxWidth(Double.MAX_VALUE);
-        pauseButton.setTooltip(new Tooltip("Pausa ou continua a simulacao"));
-
-        resetButton.setMaxWidth(Double.MAX_VALUE);
-        resetButton.setTooltip(new Tooltip("Reseta a simulacao"));
-
-        stepButton.setDisable(true);
-        stepButton.setMaxWidth(Double.MAX_VALUE);
-        stepButton.setTooltip(new Tooltip("Avanca um evento (passo a passo)"));
-
-        batchButton.setMaxWidth(Double.MAX_VALUE);
-        batchButton.setTooltip(new Tooltip("Executa lote de simulacoes"));
-
-        randomSeedButton.setMaxWidth(Double.MAX_VALUE);
-        randomSeedButton.setTooltip(new Tooltip("Gera nova semente aleatoria"));
-
-        speedLabel.setStyle("-fx-font-weight: bold;");
-        updateSpeedLabel();
-
-        snapshotLabel.setWrapText(true);
-        snapshotLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold;");
-        statusLabel.setWrapText(true);
-        statusLabel.setStyle("-fx-text-fill: #8b98a9; -fx-font-size: 12px;");
-
-        nextEventLabel.setStyle("-fx-text-fill: #8b98a9; -fx-font-size: 12px;");
-    }//fim do metodo initControls
-
-    /* ***************************************************************
-    * Metodo: buildLayout
-    * Funcao: monta o layout em secoes com espacamento consistente.
-    * Parametros: nenhum
-    * Retorno: void
-    *************************************************************** */
-    private void buildLayout() {
-        // Sessao Cenario
-        VBox secaoCenario = new VBox(6.0);
-        secaoCenario.getChildren().addAll(
-                sectionTitle("Cenario"),
-                labeledControl("Versao:", versionBox),
-                labeledControl("Origem:", sourceBox),
-                labeledControl("Destino:", destinationBox),
-                labeledControl("TTL:", ttlSpinner),
-                labeledControl("Janela V4:", windowSpinner)
-        );
-
-        // Sessao Execucao
-        HBox buttons = new HBox(6.0, startButton, pauseButton, resetButton, stepButton);
-        HBox seedBox = new HBox(6.0, new Label("Semente:"), seedField, randomSeedButton);
-        HBox windowBox = new HBox(6.0, new Label("Janela V4 (ms):"), windowSpinner);
-        HBox nextEventBox = new HBox(6.0, new Label("Proximo evento:"), nextEventLabel);
-        HBox replayBox = new HBox(6.0, new Label("Reproducao:"), replayField);
-
-        VBox secaoExecucao = new VBox(6.0);
-        secaoExecucao.getChildren().addAll(
-                sectionTitle("Execucao"),
-                speedLabel, speedSlider,
-                buttons,
-                seedBox,
-                windowBox,
-                nextEventBox,
-                replayBox
-        );
-
-        // Sessao Lote
-        HBox batchBox = new HBox(6.0, batchButton, batchProgressLabel);
-        VBox secaoLote = new VBox(6.0);
-        secaoLote.getChildren().addAll(
-                sectionTitle("Lote"),
-                labeledControl("N:", batchCountSpinner),
-                batchBox
-        );
-
-        // Sessao Medicao (contadores)
-        VBox secaoMedicao = new VBox(6.0);
-        secaoMedicao.getChildren().addAll(
-                sectionTitle("Medicao"),
-                counterLabel, timeLabel, snapshotLabel, statusLabel
-        );
-
-        getChildren().addAll(secaoCenario, secaoExecucao, secaoLote, secaoMedicao);
-    }//fim do metodo buildLayout
-
-    /* ***************************************************************
-    * Metodo: labeledControl
-    * Funcao: cria HBox com label e controle alinhados.
-    * Parametros: labelText = texto do rotulo; control = controle
-    * Retorno: HBox
-    *************************************************************** */
-    private HBox labeledControl(String labelText, javafx.scene.control.Control control) {
-        Label label = new Label(labelText);
-        label.setMinWidth(80.0);
-        label.setStyle("-fx-text-fill: #e6edf3; -fx-font-weight: bold;");
-        HBox box = new HBox(8.0, label, control);
-        box.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
-        HBox.setHgrow(control, javafx.scene.layout.Priority.ALWAYS);
-        return box;
-    }//fim do metodo labeledControl
-
-    /* ***************************************************************
-    * Metodo: sectionTitle
-    * Funcao: cria titulo de secao estilizado.
-    * Parametros: text = texto do titulo
-    * Retorno: Label
-    *************************************************************** */
-    private Label sectionTitle(String text) {
-        Label label = new Label(text);
-        label.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: #4c9aff;");
-        return label;
-    }//fim do metodo sectionTitle
-
-    /* ***************************************************************
-    * Metodo: setupListeners
-    * Funcao: configura listeners dos controles.
-    * Parametros: nenhum
-    * Retorno: void
-    *************************************************************** */
-    private void setupListeners() {
-        speedSlider.valueProperty().addListener(
-                (observable, oldValue, newValue) -> updateSpeedLabel());
-
-        versionBox.valueProperty().addListener((obs, oldVal, newVal) -> {
-            updateWindowSpinnerState();
-            updateReplayCommand();
-        });
-
-        seedField.textProperty().addListener((obs, oldVal, newVal) -> {
-            validateSeedField(newVal);
-        });
-    }//fim do metodo setupListeners
-
-    /* ***************************************************************
-    * Metodo: setOverlayLabels
-    * Funcao: define as labels de overlay no grafo para atualizacao.
-    * Parametros: packets = label de pacotes; time = label de tempo;
-    *             snapshot = label de snapshot
-    * Retorno: void
-    *************************************************************** */
-    public void setOverlayLabels(Label packets, Label time, Label snapshot) {
-        this.overlayPackets = packets;
-        this.overlayTime = time;
-        this.overlaySnapshot = snapshot;
-    }//fim do metodo setOverlayLabels
-
-    /* ***************************************************************
-    * Metodo: validateSeedField
-    * Funcao: valida o campo de semente; se invalido, borda vermelha
-    *         e mantem valor anterior.
-    * Parametros: text = texto digitado
-    * Retorno: void
-    *************************************************************** */
-    private void validateSeedField(String text) {
-        try {
-            long seed = Long.parseLong(text.trim());
-            currentSeed = seed;
-            seedField.setStyle("");
-        } catch (NumberFormatException e) {
-            seedField.setStyle("-fx-border-color: #f85149; -fx-border-width: 2px;");
-            seedField.setText(String.valueOf(currentSeed));
-        }
-    }//fim do metodo validateSeedField
-
-    /* ***************************************************************
-    * Metodo: updateWindowSpinnerState
-    * Funcao: habilita/desabilita o spinner de janela conforme versao.
-    * Parametros: nenhum
-    * Retorno: void
-    *************************************************************** */
-    private void updateWindowSpinnerState() {
-        int version = getVersion();
-        windowSpinner.setDisable(version != 4);
-    }//fim do metodo updateWindowSpinnerState
-
-    /* ***************************************************************
-    * Metodo: updateReplayCommand
-    * Funcao: atualiza o campo de comando de reproducao.
-    * Parametros: nenhum
-    * Retorno: void
-    *************************************************************** */
-    public void updateReplayCommand() {
-        int version = getVersion();
-        int source = getSourceId();
-        int destination = getDestinationId();
-        int ttl = getTtl();
-        long seed = getSeed();
-        StringBuilder cmd = new StringBuilder();
-        cmd.append("java -cp build util.ConsoleRunner ");
-        cmd.append(version).append(" ");
-        cmd.append(source).append(" ");
-        cmd.append(destination).append(" ");
-        cmd.append(ttl).append(" ");
-        cmd.append(seed);
-        if (version == 4) {
-            cmd.append(" janela=").append(getWindowMs());
-        }
-        replayField.setText(cmd.toString());
-    }//fim do metodo updateReplayCommand
-
-    /* ***************************************************************
-    * Metodo: setOnStart
-    * Funcao: registra a acao do botao Iniciar.
-    * Parametros: action = acao a executar
-    * Retorno: void
-    *************************************************************** */
-    public void setOnStart(Runnable action) {
-        startButton.setOnAction(event -> action.run());
-    }//fim do metodo setOnStart
-
-    /* ***************************************************************
-    * Metodo: setOnPause
-    * Funcao: registra a acao do botao Pausar/Continuar.
-    * Parametros: action = acao a executar
-    * Retorno: void
-    *************************************************************** */
-    public void setOnPause(Runnable action) {
-        pauseButton.setOnAction(event -> action.run());
-    }//fim do metodo setOnPause
-
-    /* ***************************************************************
-    * Metodo: setOnReset
-    * Funcao: registra a acao do botao Resetar.
-    * Parametros: action = acao a executar
-    * Retorno: void
-    *************************************************************** */
-    public void setOnReset(Runnable action) {
-        resetButton.setOnAction(event -> action.run());
-    }//fim do metodo setOnReset
-
-    /* ***************************************************************
-    * Metodo: setOnStep
-    * Funcao: registra a acao do botao Proximo evento.
-    * Parametros: action = acao a executar
-    * Retorno: void
-    *************************************************************** */
-    public void setOnStep(Runnable action) {
-        stepButton.setOnAction(event -> action.run());
-    }//fim do metodo setOnStep
-
-    /* ***************************************************************
-    * Metodo: setOnEndpointsChange
-    * Funcao: avisa quando transmissor ou receptor mudam.
-    * Parametros: action = acao a executar
-    * Retorno: void
-    *************************************************************** */
-    public void setOnEndpointsChange(Runnable action) {
-        sourceBox.valueProperty().addListener((observable, oldValue, newValue) -> {
-            action.run();
-            updateReplayCommand();
-        });
-        destinationBox.valueProperty().addListener(
-                (observable, oldValue, newValue) -> {
-                    action.run();
-                    updateReplayCommand();
-                });
-    }//fim do metodo setOnEndpointsChange
-
-    /* ***************************************************************
-    * Metodo: getVersion
-    * Funcao: informa a versao escolhida.
-    * Parametros: nenhum
-    * Retorno: int de 1 a 4
-    *************************************************************** */
-    public int getVersion() {
-        return versionBox.getSelectionModel().getSelectedIndex() + 1;
-    }//fim do metodo getVersion
-
-    /* ***************************************************************
-    * Metodo: getSourceId
-    * Funcao: informa o id do transmissor escolhido.
-    * Parametros: nenhum
-    * Retorno: int com o id do no (comeca em 1)
-    *************************************************************** */
-    public int getSourceId() {
-        return sourceBox.getSelectionModel().getSelectedIndex() + 1;
-    }//fim do metodo getSourceId
-
-    /* ***************************************************************
-    * Metodo: getDestinationId
-    * Funcao: informa o id do receptor escolhido.
-    * Parametros: nenhum
-    * Retorno: int com o id do no (comeca em 1)
-    *************************************************************** */
-    public int getDestinationId() {
-        return destinationBox.getSelectionModel().getSelectedIndex() + 1;
-    }//fim do metodo getDestinationId
-
-    /* ***************************************************************
-    * Metodo: getTtl
-    * Funcao: le o TTL inicial (aceita o valor digitado no campo).
-    * Parametros: nenhum
-    * Retorno: int com o TTL, no minimo 1
-    *************************************************************** */
-    public int getTtl() {
-        try {
-            int typed = Integer.parseInt(ttlSpinner.getEditor().getText().trim());
-            return Math.max(1, typed);
-        } catch (NumberFormatException exception) {
-            return ttlSpinner.getValue().intValue();
-        }
-    }//fim do metodo getTtl
-
-    /* ***************************************************************
-    * Metodo: getBatchCount
-    * Funcao: informa o numero de execucoes do lote.
-    * Parametros: nenhum
-    * Retorno: int com o numero de execucoes (minimo 1)
-    *************************************************************** */
-    public int getBatchCount() {
-        try {
-            int typed = Integer.parseInt(batchCountSpinner.getEditor().getText().trim());
-            return Math.max(1, typed);
-        } catch (NumberFormatException exception) {
-            return batchCountSpinner.getValue().intValue();
-        }
-    }//fim do metodo getBatchCount
-
-    /* ***************************************************************
-    * Metodo: getWindowMs
-    * Funcao: informa a janela de deduplicacao (ms) para V4.
-    * Parametros: nenhum
-    * Retorno: long com a janela em ms
-    *************************************************************** */
-    public long getWindowMs() {
-        try {
-            int typed = Integer.parseInt(windowSpinner.getEditor().getText().trim());
-            return Math.max(0, typed);
-        } catch (NumberFormatException exception) {
-            return windowSpinner.getValue().longValue();
-        }
-    }//fim do metodo getWindowMs
-
-    /* ***************************************************************
-    * Metodo: getSeed
-    * Funcao: informa a semente atual.
-    * Parametros: nenhum
-    * Retorno: long - semente
-    *************************************************************** */
-    public long getSeed() {
-        return currentSeed;
-    }//fim do metodo getSeed
-
-    /* ***************************************************************
-    * Metodo: setOnBatch
-    * Funcao: registra a acao do botao Executar N vezes.
-    * Parametros: action = acao a executar
-    * Retorno: void
-    *************************************************************** */
-    public void setOnBatch(Runnable action) {
-        batchButton.setOnAction(event -> action.run());
-    }//fim do metodo setOnBatch
-
-    /* ***************************************************************
-    * Metodo: setOnRandomSeed
-    * Funcao: registra a acao do botao Sortear semente.
-    * Parametros: action = acao a executar
-    * Retorno: void
-    *************************************************************** */
-    public void setOnRandomSeed(Runnable action) {
-        randomSeedButton.setOnAction(event -> action.run());
-    }//fim do metodo setOnRandomSeed
-
-    /* ***************************************************************
-    * Metodo: setBatchProgress
-    * Funcao: atualiza o rotulo de progresso do lote.
-    * Parametros: current = execucao atual; total = total de execucoes
-    * Retorno: void
-    *************************************************************** */
-    public void setBatchProgress(int current, int total) {
-        batchProgressLabel.setText(current + "/" + total);
-    }//fim do metodo setBatchProgress
-
-    /* ***************************************************************
-    * Metodo: getSpeed
-    * Funcao: informa o fator de velocidade escolhido no slider.
-    * Parametros: nenhum
-    * Retorno: double entre 0.25 e 10.0
-    *************************************************************** */
-    public double getSpeed() {
-        return speedSlider.getValue();
-    }//fim do metodo getSpeed
-
-    /* ***************************************************************
-    * Metodo: setCounter
-    * Funcao: mostra o contador de pacotes gerados.
-    * Parametros: packets = pacotes gerados ate agora
-    * Retorno: void
-    *************************************************************** */
-    public void setCounter(long packets) {
-        counterLabel.setText("Pacotes gerados: " + packets);
-        if (overlayPackets != null) {
-            overlayPackets.setText("Pacotes: " + packets);
-        }
-    }//fim do metodo setCounter
-
-    /* ***************************************************************
-    * Metodo: setVirtualTime
-    * Funcao: mostra o relogio virtual da simulacao.
-    * Parametros: millis = tempo virtual em milissegundos
-    * Retorno: void
-    *************************************************************** */
-    public void setVirtualTime(long millis) {
-        timeLabel.setText("Tempo virtual: " + millis + " ms");
-        if (overlayTime != null) {
-            overlayTime.setText("Tempo: " + millis + " ms");
-        }
-    }//fim do metodo setVirtualTime
-
-    /* ***************************************************************
-    * Metodo: showSnapshot
-    * Funcao: destaca o contador no instante da primeira chegada.
-    * Parametros: packets = pacotes gerados; millis = tempo virtual
-    * Retorno: void
-    *************************************************************** */
-    public void showSnapshot(long packets, long millis) {
-        snapshotLabel.setText("Destino atingido: " + packets
-                + " pacotes gerados (t = " + millis + " ms)");
-        if (overlaySnapshot != null) {
-            overlaySnapshot.setText("Snapshot: " + packets + " @ " + millis + "ms");
-        }
-    }//fim do metodo showSnapshot
-
-    /* ***************************************************************
-    * Metodo: setStatus
-    * Funcao: mostra uma mensagem de estado para o usuario.
-    * Parametros: message = texto da mensagem
-    * Retorno: void
-    *************************************************************** */
-    public void setStatus(String message) {
-        statusLabel.setText(message);
-    }//fim do metodo setStatus
-
-    /* ***************************************************************
-    * Metodo: resetDisplay
-    * Funcao: zera contador, tempo e snapshot.
-    * Parametros: nenhum
-    * Retorno: void
-    *************************************************************** */
-    public void resetDisplay() {
-        setCounter(0);
-        setVirtualTime(0);
-        snapshotLabel.setText(NO_SNAPSHOT);
-        nextEventLabel.setText("Fila vazia");
-        if (overlaySnapshot != null) {
-            overlaySnapshot.setText("Snapshot: --");
-        }
-    }//fim do metodo resetDisplay
-
-    /* ***************************************************************
-    * Metodo: setRunning
-    * Funcao: trava os controles de escolha enquanto a simulacao roda.
-    * Parametros: running = true se ha simulacao em andamento
-    * Retorno: void
-    *************************************************************** */
-    public void setRunning(boolean running) {
-        this.running = running;
-        versionBox.setDisable(running);
-        sourceBox.setDisable(running);
-        destinationBox.setDisable(running);
-        ttlSpinner.setDisable(running);
-        batchCountSpinner.setDisable(running);
-        windowSpinner.setDisable(running || getVersion() != 4);
-        startButton.setDisable(running);
-        pauseButton.setDisable(!running);
-        stepButton.setDisable(!running || !paused);
-        batchButton.setDisable(running);
-        seedField.setDisable(running);
-        randomSeedButton.setDisable(running);
-    }//fim do metodo setRunning
-
-    /* ***************************************************************
-    * Metodo: setPaused
-    * Funcao: alterna o texto do botao entre Pausar e Continuar.
-    * Parametros: paused = true se a simulacao esta pausada
-    * Retorno: void
-    *************************************************************** */
-    public void setPaused(boolean paused) {
-        this.paused = paused;
-        pauseButton.setText(paused ? "Continuar" : "Pausar");
-        stepButton.setDisable(!running || !paused);
-    }//fim do metodo setPaused
-
-    /* ***************************************************************
-    * Metodo: setNextEventTime
-    * Funcao: atualiza o label do proximo evento.
-    * Parametros: nextTime = tempo do proximo evento ou Long.MAX_VALUE
-    * Retorno: void
-    *************************************************************** */
-    public void setNextEventTime(long nextTime) {
-        if (nextTime == Long.MAX_VALUE) {
-            nextEventLabel.setText("Fila vazia");
+    // Versao
+    Label versionLabel = new Label("Versao");
+    versionLabel.getStyleClass().add("secao-titulo");
+    versionCombo = new ComboBox<>();
+    versionCombo.getItems().addAll(1, 2, 3, 4);
+    versionCombo.setValue(1);
+    versionCombo.setCellFactory(lv -> new javafx.scene.control.ListCell<Integer>() {
+      @Override
+      protected void updateItem(Integer item, boolean empty) {
+        super.updateItem(item, empty);
+        if (empty || item == null) {
+          setText(null);
         } else {
-            nextEventLabel.setText("t = " + nextTime + " ms");
+          switch (item) {
+            case 1: setText("V1 - todas"); break;
+            case 2: setText("V2 - sem a de chegada"); break;
+            case 3: setText("V3 - com TTL"); break;
+            case 4: setText("V4 - TTL + janela"); break;
+            default: setText(item.toString());
+          }
         }
-    }//fim do metodo setNextEventTime
-
-    /* ***************************************************************
-    * Metodo: getSeedField
-    * Funcao: retorna o campo de texto da semente (para uso interno).
-    * Parametros: nenhum
-    * Retorno: TextField
-    *************************************************************** */
-    public TextField getSeedField() {
-        return seedField;
-    }//fim do metodo getSeedField
-
-    /* ***************************************************************
-    * Metodo: updateForNewGraph
-    * Funcao: atualiza o painel para um novo grafo recarregado.
-    * Parametros: graph = novo grafo
-    * Retorno: void
-    *************************************************************** */
-    public void updateForNewGraph(Graph graph) {
-        sourceBox.getItems().clear();
-        destinationBox.getItems().clear();
-        for (int id = 1; id <= graph.getNodeCount(); id++) {
-            String label = graph.getNode(id).getLabel();
-            sourceBox.getItems().add(label);
-            destinationBox.getItems().add(label);
+      }
+    });
+    versionCombo.setButtonCell(new javafx.scene.control.ListCell<Integer>() {
+      @Override
+      protected void updateItem(Integer item, boolean empty) {
+        super.updateItem(item, empty);
+        if (empty || item == null) {
+          setText(null);
+        } else {
+          switch (item) {
+            case 1: setText("V1 - todas"); break;
+            case 2: setText("V2 - sem a de chegada"); break;
+            case 3: setText("V3 - com TTL"); break;
+            case 4: setText("V4 - TTL + janela"); break;
+            default: setText(item.toString());
+          }
         }
-        sourceBox.getSelectionModel().select(0);
-        destinationBox.getSelectionModel().select(
-                Math.min(3, graph.getNodeCount() - 1));
-        ttlSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(
-                1, 99, Math.max(1, graph.diameter())));
-        updateReplayCommand();
-    }//fim do metodo updateForNewGraph
+      }
+    });
+    versionCombo.setMaxWidth(Double.MAX_VALUE);
+    versionCombo.setOnAction(e -> controller.onVersionChanged(versionCombo.getValue()));
 
-    /* ***************************************************************
-    * Metodo: updateSpeedLabel
-    * Funcao: atualiza o texto com o fator de velocidade atual.
-    * Parametros: nenhum
-    * Retorno: void
-    *************************************************************** */
-    private void updateSpeedLabel() {
-        speedLabel.setText(String.format("Velocidade: %.2fx",
-                speedSlider.getValue()));
-    }//fim do metodo updateSpeedLabel
+    // Origem
+    Label sourceLabel = new Label("Transmissor");
+    sourceLabel.getStyleClass().add("secao-titulo");
+    sourceCombo = new ComboBox<>();
+    for (int i = 1; i <= graph.getNodeCount(); i++) {
+      sourceCombo.getItems().add(i);
+    }
+    sourceCombo.setValue(1);
+    sourceCombo.setMaxWidth(Double.MAX_VALUE);
+    sourceCombo.setOnAction(e -> controller.onSourceChanged(sourceCombo.getValue()));
 
+    // Destino
+    Label targetLabel = new Label("Receptor");
+    targetLabel.getStyleClass().add("secao-titulo");
+    targetCombo = new ComboBox<>();
+    for (int i = 1; i <= graph.getNodeCount(); i++) {
+      targetCombo.getItems().add(i);
+    }
+    targetCombo.setValue(graph.getNodeCount());
+    targetCombo.setMaxWidth(Double.MAX_VALUE);
+    targetCombo.setOnAction(e -> controller.onTargetChanged(targetCombo.getValue()));
+
+    // TTL
+    Label ttlLabel = new Label("TTL");
+    ttlLabel.getStyleClass().add("secao-titulo");
+    int diameter = graph.diameter();
+    ttlSpinner = new Spinner<>(1, 100, diameter);
+    ttlSpinner.setEditable(true);
+    ttlSpinner.setMaxWidth(Double.MAX_VALUE);
+    ttlSpinner.valueProperty().addListener((obs, o, n) -> controller.onTtlChanged(n));
+
+    // Janela V4 (ms)
+    Label windowLabel = new Label("Janela V4 (ms)");
+    windowLabel.getStyleClass().add("secao-titulo");
+    windowSpinner = new Spinner<>(0, 10000, 0);
+    windowSpinner.setEditable(true);
+    windowSpinner.setMaxWidth(Double.MAX_VALUE);
+    windowSpinner.valueProperty().addListener((obs, o, n) -> controller.onWindowChanged(n));
+
+    box.getChildren().addAll(
+      versionLabel, versionCombo,
+      sourceLabel, sourceCombo,
+      targetLabel, targetCombo,
+      ttlLabel, ttlSpinner,
+      windowLabel, windowSpinner
+    );
+    return box;
+  }
+
+  /* ***************************************************************
+  * Metodo: createExecutionTab
+  * Funcao: Cria a aba de execucao com botoes, velocidade, semente, reproducao
+  * Parametros: nenhum
+  * Retorno: VBox com o conteudo da aba
+  *************************************************************** */
+  private VBox createExecutionTab() {
+    VBox box = new VBox(12);
+    box.getStyleClass().add("secao");
+    box.setPadding(new Insets(12));
+    box.setFillWidth(true);
+
+    // Botoes de controle em GridPane 2x2
+    GridPane buttonGrid = new GridPane();
+    buttonGrid.setHgap(8);
+    buttonGrid.setVgap(8);
+    ColumnConstraints col1 = new ColumnConstraints();
+    col1.setPercentWidth(50);
+    col1.setFillWidth(true);
+    ColumnConstraints col2 = new ColumnConstraints();
+    col2.setPercentWidth(50);
+    col2.setFillWidth(true);
+    buttonGrid.getColumnConstraints().addAll(col1, col2);
+
+    startBtn = new Button("Iniciar");
+    startBtn.setMaxWidth(Double.MAX_VALUE);
+    startBtn.setOnAction(e -> {
+      if (onStartCallback != null) onStartCallback.run();
+    });
+    GridPane.setFillWidth(startBtn, true);
+
+    pauseBtn = new Button("Pausar");
+    pauseBtn.setMaxWidth(Double.MAX_VALUE);
+    pauseBtn.setOnAction(e -> {
+      if (onPauseCallback != null) onPauseCallback.run();
+    });
+    pauseBtn.setDisable(true);
+    GridPane.setFillWidth(pauseBtn, true);
+
+    resetBtn = new Button("Resetar");
+    resetBtn.setMaxWidth(Double.MAX_VALUE);
+    resetBtn.setOnAction(e -> {
+      if (onResetCallback != null) onResetCallback.run();
+    });
+    GridPane.setFillWidth(resetBtn, true);
+
+    stepBtn = new Button("Proximo evento");
+    stepBtn.setMaxWidth(Double.MAX_VALUE);
+    stepBtn.setOnAction(e -> {
+      if (onStepCallback != null) onStepCallback.run();
+    });
+    stepBtn.setDisable(true);
+    GridPane.setFillWidth(stepBtn, true);
+
+    buttonGrid.add(startBtn, 0, 0);
+    buttonGrid.add(pauseBtn, 1, 0);
+    buttonGrid.add(resetBtn, 0, 1);
+    buttonGrid.add(stepBtn, 1, 1);
+
+    // Velocidade
+    Label speedLabel = new Label("Velocidade");
+    speedLabel.getStyleClass().add("secao-titulo");
+    speedSlider = new Slider(0.25, 10.0, 2.0);
+    speedSlider.setShowTickLabels(true);
+    speedSlider.setShowTickMarks(true);
+    speedSlider.setMajorTickUnit(1.0);
+    speedSlider.setMinorTickCount(3);
+    speedSlider.setBlockIncrement(0.25);
+    speedSlider.valueProperty().addListener((obs, o, n) -> controller.onSpeedChanged(n.doubleValue()));
+
+    // Semente
+    Label seedLabel = new Label("Semente");
+    seedLabel.getStyleClass().add("secao-titulo");
+    HBox seedBox = new HBox(8);
+    seedField = new TextField();
+    seedField.setPromptText("Deixe vazio para aleatorio");
+    HBox.setHgrow(seedField, Priority.ALWAYS);
+    randomSeedBtn = new Button("Sortear");
+    randomSeedBtn.setOnAction(e -> {
+      long seed = System.currentTimeMillis() ^ (long) (Math.random() * 1000000);
+      seedField.setText(Long.toString(seed));
+      controller.onSeedChanged(seed);
+      if (onRandomSeedCallback != null) onRandomSeedCallback.run();
+    });
+    seedBox.getChildren().addAll(seedField, randomSeedBtn);
+
+    // Reproducao
+    Label replayLabel = new Label("Reproducao");
+    replayLabel.getStyleClass().add("secao-titulo");
+    HBox replayBox = new HBox(8);
+    replayField = new TextField();
+    replayField.setEditable(false);
+    replayField.setPromptText("Semente usada na ultima execucao");
+    HBox.setHgrow(replayField, Priority.ALWAYS);
+    copyReplayBtn = new Button("Copiar");
+    copyReplayBtn.setOnAction(e -> {
+      javafx.scene.input.Clipboard clipboard = javafx.scene.input.Clipboard.getSystemClipboard();
+      javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
+      content.putString(replayField.getText());
+      clipboard.setContent(content);
+    });
+    replayBox.getChildren().addAll(replayField, copyReplayBtn);
+
+    box.getChildren().addAll(
+      buttonGrid,
+      speedLabel, speedSlider,
+      seedLabel, seedBox,
+      replayLabel, replayBox
+    );
+    return box;
+  }
+
+  /* ***************************************************************
+  * Metodo: createResultsTab
+  * Funcao: Cria a aba de resultados com tabela e grafico de comparacao
+  * Parametros: nenhum
+  * Retorno: VBox com o conteudo da aba
+  *************************************************************** */
+  private VBox createResultsTab() {
+    VBox box = new VBox(12);
+    box.getStyleClass().add("secao");
+    box.setPadding(new Insets(12));
+    box.setFillWidth(true);
+
+    Label resultsLabel = new Label("Resultados por versao");
+    resultsLabel.getStyleClass().add("secao-titulo");
+
+    // CheckBox escala log
+    logScaleCheck = new CheckBox("Escala log");
+    logScaleCheck.setSelected(true);
+    logScaleCheck.setOnAction(e -> controller.onLogScaleChanged(logScaleCheck.isSelected()));
+
+    box.getChildren().addAll(resultsLabel, logScaleCheck);
+    return box;
+  }
+
+  // --- Getters para compatibilidade com SimulationController ---
+
+  /* ***************************************************************
+  * Metodo: getVersion
+  * Funcao: Retorna a versao selecionada
+  * Parametros: nenhum
+  * Retorno: int - versao (1 a 4)
+  *************************************************************** */
+  public int getVersion() {
+    return versionCombo.getValue();
+  }
+
+  /* ***************************************************************
+  * Metodo: getSourceId
+  * Funcao: Retorna o id do transmissor selecionado
+  * Parametros: nenhum
+  * Retorno: int - id do no
+  *************************************************************** */
+  public int getSourceId() {
+    return sourceCombo.getValue();
+  }
+
+  /* ***************************************************************
+  * Metodo: getDestinationId
+  * Funcao: Retorna o id do receptor selecionado
+  * Parametros: nenhum
+  * Retorno: int - id do no
+  *************************************************************** */
+  public int getDestinationId() {
+    return targetCombo.getValue();
+  }
+
+  /* ***************************************************************
+  * Metodo: getTtl
+  * Funcao: Retorna o TTL selecionado
+  * Parametros: nenhum
+  * Retorno: int - TTL
+  *************************************************************** */
+  public int getTtl() {
+    return ttlSpinner.getValue();
+  }
+
+  /* ***************************************************************
+  * Metodo: getWindowMs
+  * Funcao: Retorna a janela V4 em milissegundos
+  * Parametros: nenhum
+  * Retorno: long - janela em ms
+  *************************************************************** */
+  public long getWindowMs() {
+    return windowSpinner.getValue();
+  }
+
+  /* ***************************************************************
+  * Metodo: getBatchCount
+  * Funcao: Retorna a contagem de lote (padrao 30)
+  * Parametros: nenhum
+  * Retorno: int - contagem
+  *************************************************************** */
+  public int getBatchCount() {
+    return 30;
+  }
+
+  /* ***************************************************************
+  * Metodo: getSeed
+  * Funcao: Retorna a semente do campo de texto
+  * Parametros: nenhum
+  * Retorno: long - semente
+  *************************************************************** */
+  public long getSeed() {
+    String text = seedField.getText();
+    if (text == null || text.trim().isEmpty()) {
+      return System.nanoTime();
+    }
+    try {
+      return Long.parseLong(text.trim());
+    } catch (NumberFormatException e) {
+      return System.nanoTime();
+    }
+  }
+
+  /* ***************************************************************
+  * Metodo: getSpeed
+  * Funcao: Retorna o fator de velocidade do slider
+  * Parametros: nenhum
+  * Retorno: double - fator de velocidade
+  *************************************************************** */
+  public double getSpeed() {
+    return speedSlider.getValue();
+  }
+
+  // --- Callbacks ---
+
+  /* ***************************************************************
+  * Metodo: setOnStart
+  * Funcao: Define callback para botao Iniciar
+  * Parametros: callback - Runnable a executar
+  * Retorno: void
+  *************************************************************** */
+  public void setOnStart(Runnable callback) {
+    this.onStartCallback = callback;
+  }
+
+  /* ***************************************************************
+  * Metodo: setOnPause
+  * Funcao: Define callback para botao Pausar
+  * Parametros: callback - Runnable a executar
+  * Retorno: void
+  *************************************************************** */
+  public void setOnPause(Runnable callback) {
+    this.onPauseCallback = callback;
+  }
+
+  /* ***************************************************************
+  * Metodo: setOnReset
+  * Funcao: Define callback para botao Resetar
+  * Parametros: callback - Runnable a executar
+  * Retorno: void
+  *************************************************************** */
+  public void setOnReset(Runnable callback) {
+    this.onResetCallback = callback;
+  }
+
+  /* ***************************************************************
+  * Metodo: setOnEndpointsChange
+  * Funcao: Define callback para mudanca de endpoints
+  * Parametros: callback - Runnable a executar
+  * Retorno: void
+  *************************************************************** */
+  public void setOnEndpointsChange(Runnable callback) {
+    this.onEndpointsChangeCallback = callback;
+  }
+
+  /* ***************************************************************
+  * Metodo: setOnBatch
+  * Funcao: Define callback para botao Lote
+  * Parametros: callback - Runnable a executar
+  * Retorno: void
+  *************************************************************** */
+  public void setOnBatch(Runnable callback) {
+    this.onBatchCallback = callback;
+  }
+
+  /* ***************************************************************
+  * Metodo: setOnStep
+  * Funcao: Define callback para botao Proximo evento
+  * Parametros: callback - Runnable a executar
+  * Retorno: void
+  *************************************************************** */
+  public void setOnStep(Runnable callback) {
+    this.onStepCallback = callback;
+  }
+
+  /* ***************************************************************
+  * Metodo: setOnRandomSeed
+  * Funcao: Define callback para botao Sortear
+  * Parametros: callback - Runnable a executar
+  * Retorno: void
+  *************************************************************** */
+  public void setOnRandomSeed(Runnable callback) {
+    this.onRandomSeedCallback = callback;
+  }
+
+  /* ***************************************************************
+  * Metodo: updateReplayCommand
+  * Funcao: Atualiza o campo de reproducao (compatibilidade)
+  * Parametros: nenhum
+  * Retorno: void
+  *************************************************************** */
+  public void updateReplayCommand() {
+    // O campo replayField e atualizado automaticamente via setReplaySeed
+  }
+
+  /* ***************************************************************
+  * Metodo: updateForNewGraph
+  * Funcao: Atualiza os combos de origem/destino para novo grafo
+  * Parametros: newGraph - novo grafo carregado
+  * Retorno: void
+  *************************************************************** */
+  public void updateForNewGraph(Graph newGraph) {
+    int currentSource = sourceCombo.getValue();
+    int currentTarget = targetCombo.getValue();
+    sourceCombo.getItems().clear();
+    targetCombo.getItems().clear();
+    for (int i = 1; i <= newGraph.getNodeCount(); i++) {
+      sourceCombo.getItems().add(i);
+      targetCombo.getItems().add(i);
+    }
+    if (sourceCombo.getItems().contains(currentSource)) {
+      sourceCombo.setValue(currentSource);
+    } else {
+      sourceCombo.setValue(1);
+    }
+    if (targetCombo.getItems().contains(currentTarget)) {
+      targetCombo.setValue(currentTarget);
+    } else {
+      targetCombo.setValue(newGraph.getNodeCount());
+    }
+    int diameter = newGraph.diameter();
+    ttlSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 100, diameter));
+  }
+
+  /* ***************************************************************
+  * Metodo: setStatus
+  * Funcao: Define mensagem de status e atualiza label de finalizada se necessario
+  * Parametros: msg - mensagem
+  * Retorno: void
+  *************************************************************** */
+  public void setStatus(String msg) {
+    if (overlayFinishedLabel != null) {
+      final String message = msg;
+      Platform.runLater(() -> {
+        if (message.contains("Encerrada") && message.contains("pacotes na rede")) {
+          overlayFinishedLabel.setText("Encerrada: nao ha mais pacotes na rede.");
+          overlayFinishedLabel.setVisible(true);
+          overlayFinishedLabel.setManaged(true);
+        } else if (message.contains("Encerrada sem atingir")) {
+          overlayFinishedLabel.setText("Encerrada sem atingir o destino (rede esvaziou).");
+          overlayFinishedLabel.setVisible(true);
+          overlayFinishedLabel.setManaged(true);
+        } else {
+          overlayFinishedLabel.setVisible(false);
+          overlayFinishedLabel.setManaged(false);
+        }
+      });
+    }
+  }
+
+  /* ***************************************************************
+  * Metodo: setCounter
+  * Funcao: Atualiza contador de pacotes no overlay
+  * Parametros: count - numero de pacotes gerados
+  * Retorno: void
+  *************************************************************** */
+  public void setCounter(long count) {
+    if (overlayPacketsLabel != null) {
+      Platform.runLater(() -> overlayPacketsLabel.setText(Long.toString(count)));
+    }
+  }
+
+  /* ***************************************************************
+  * Metodo: setVirtualTime
+  * Funcao: Atualiza tempo virtual no overlay
+  * Parametros: time - tempo em ms
+  * Retorno: void
+  *************************************************************** */
+  public void setVirtualTime(long time) {
+    if (overlayTimeLabel != null) {
+      Platform.runLater(() -> overlayTimeLabel.setText(time + " ms"));
+    }
+  }
+
+  /* ***************************************************************
+  * Metodo: showSnapshot
+  * Funcao: Mostra snapshot no overlay
+  * Parametros: counter - contador no snapshot; time - tempo do snapshot
+  * Retorno: void
+  *************************************************************** */
+  public void showSnapshot(long counter, long time) {
+    if (overlaySnapshotLabel != null) {
+      Platform.runLater(() -> overlaySnapshotLabel.setText("Snapshot: " + counter + " @ " + time + " ms"));
+    }
+  }
+
+  /* ***************************************************************
+  * Metodo: setNextEventTime
+  * Funcao: Define proximo tempo de evento (compatibilidade)
+  * Parametros: time - tempo do proximo evento
+  * Retorno: void
+  *************************************************************** */
+  public void setNextEventTime(long time) {
+    // No-op
+  }
+
+  /* ***************************************************************
+  * Metodo: setRunning
+  * Funcao: Atualiza estado dos botoes para executando/pausado
+  * Parametros: running - true se executando, false se pausado
+  * Retorno: void
+  *************************************************************** */
+  public void setRunning(boolean running) {
+    startBtn.setDisable(running);
+    pauseBtn.setDisable(!running);
+    stepBtn.setDisable(running);
+    resetBtn.setDisable(false);
+  }
+
+  /* ***************************************************************
+  * Metodo: setPaused
+  * Funcao: Atualiza estado pausado dos botoes
+  * Parametros: paused - true se pausado
+  * Retorno: void
+  *************************************************************** */
+  public void setPaused(boolean paused) {
+    pauseBtn.setDisable(paused || startBtn.isDisable());
+    stepBtn.setDisable(!paused || startBtn.isDisable());
+  }
+
+  /* ***************************************************************
+  * Metodo: resetDisplay
+  * Funcao: Reseta a exibicao dos contadores e botoes
+  * Parametros: nenhum
+  * Retorno: void
+  *************************************************************** */
+  public void resetDisplay() {
+    if (overlayPacketsLabel != null) overlayPacketsLabel.setText("0");
+    if (overlayTimeLabel != null) overlayTimeLabel.setText("0 ms");
+    if (overlaySnapshotLabel != null) overlaySnapshotLabel.setText("Snapshot: --");
+    if (overlayFinishedLabel != null) {
+      overlayFinishedLabel.setVisible(false);
+      overlayFinishedLabel.setManaged(false);
+    }
+    startBtn.setDisable(false);
+    pauseBtn.setDisable(true);
+    stepBtn.setDisable(true);
+    resetBtn.setDisable(false);
+  }
+
+  /* ***************************************************************
+  * Metodo: setBatchProgress
+  * Funcao: Atualiza progresso do lote (compatibilidade)
+  * Parametros: current - atual; total - total
+  * Retorno: void
+  *************************************************************** */
+  public void setBatchProgress(int current, int total) {
+    // No-op para compatibilidade
+  }
+
+  /* ***************************************************************
+  * Metodo: setOverlayLabels
+  * Funcao: Define os labels do overlay do cartao de contadores
+  * Parametros: packets - label de pacotes; time - label de tempo; snapshot - label de snapshot; finished - label de finalizada
+  * Retorno: void
+  *************************************************************** */
+  private Label overlayFinishedLabel;
+
+  public void setOverlayLabels(Label packets, Label time, Label snapshot, Label finished) {
+    this.overlayPacketsLabel = packets;
+    this.overlayTimeLabel = time;
+    this.overlaySnapshotLabel = snapshot;
+    this.overlayFinishedLabel = finished;
+  }
+
+  /* ***************************************************************
+  * Metodo: setReplaySeed
+  * Funcao: Define a semente de reproducao no campo readonly
+  * Parametros: seed - valor da semente
+  * Retorno: void
+  *************************************************************** */
+  public void setReplaySeed(long seed) {
+    replayField.setText(Long.toString(seed));
+  }
+
+  /* ***************************************************************
+  * Metodo: getVersionCombo
+  * Funcao: Retorna o ComboBox de versao
+  * Parametros: nenhum
+  * Retorno: ComboBox<Integer>
+  *************************************************************** */
+  public ComboBox<Integer> getVersionCombo() {
+    return versionCombo;
+  }
+
+  /* ***************************************************************
+  * Metodo: getSourceCombo
+  * Funcao: Retorna o ComboBox de origem
+  * Parametros: nenhum
+  * Retorno: ComboBox<Integer>
+  *************************************************************** */
+  public ComboBox<Integer> getSourceCombo() {
+    return sourceCombo;
+  }
+
+  /* ***************************************************************
+  * Metodo: getTargetCombo
+  * Funcao: Retorna o ComboBox de destino
+  * Parametros: nenhum
+  * Retorno: ComboBox<Integer>
+  *************************************************************** */
+  public ComboBox<Integer> getTargetCombo() {
+    return targetCombo;
+  }
+
+  /* ***************************************************************
+  * Metodo: getTtlSpinner
+  * Funcao: Retorna o Spinner de TTL
+  * Parametros: nenhum
+  * Retorno: Spinner<Integer>
+  *************************************************************** */
+  public Spinner<Integer> getTtlSpinner() {
+    return ttlSpinner;
+  }
+
+  /* ***************************************************************
+  * Metodo: getWindowSpinner
+  * Funcao: Retorna o Spinner de janela V4
+  * Parametros: nenhum
+  * Retorno: Spinner<Integer>
+  *************************************************************** */
+  public Spinner<Integer> getWindowSpinner() {
+    return windowSpinner;
+  }
+
+  /* ***************************************************************
+  * Metodo: getBatchCountSpinner
+  * Funcao: Retorna o Spinner de contagem de lote
+  * Parametros: nenhum
+  * Retorno: Spinner<Integer>
+  *************************************************************** */
+  public Spinner<Integer> getBatchCountSpinner() {
+    return batchCountSpinner;
+  }
+
+  /* ***************************************************************
+  * Metodo: getSpeedSlider
+  * Funcao: Retorna o Slider de velocidade
+  * Parametros: nenhum
+  * Retorno: Slider
+  *************************************************************** */
+  public Slider getSpeedSlider() {
+    return speedSlider;
+  }
+
+  /* ***************************************************************
+  * Metodo: getSeedField
+  * Funcao: Retorna o TextField de semente
+  * Parametros: nenhum
+  * Retorno: TextField
+  *************************************************************** */
+  public TextField getSeedField() {
+    return seedField;
+  }
+
+  /* ***************************************************************
+  * Metodo: getReplayField
+  * Funcao: Retorna o TextField de reproducao
+  * Parametros: nenhum
+  * Retorno: TextField
+  *************************************************************** */
+  public TextField getReplayField() {
+    return replayField;
+  }
+
+  /* ***************************************************************
+  * Metodo: getStartBtn
+  * Funcao: Retorna o botao Iniciar
+  * Parametros: nenhum
+  * Retorno: Button
+  *************************************************************** */
+  public Button getStartBtn() {
+    return startBtn;
+  }
+
+  /* ***************************************************************
+  * Metodo: getPauseBtn
+  * Funcao: Retorna o botao Pausar
+  * Parametros: nenhum
+  * Retorno: Button
+  *************************************************************** */
+  public Button getPauseBtn() {
+    return pauseBtn;
+  }
+
+  /* ***************************************************************
+  * Metodo: getResetBtn
+  * Funcao: Retorna o botao Resetar
+  * Parametros: nenhum
+  * Retorno: Button
+  *************************************************************** */
+  public Button getResetBtn() {
+    return resetBtn;
+  }
+
+  /* ***************************************************************
+  * Metodo: getStepBtn
+  * Funcao: Retorna o botao Proximo evento
+  * Parametros: nenhum
+  * Retorno: Button
+  *************************************************************** */
+  public Button getStepBtn() {
+    return stepBtn;
+  }
+
+  /* ***************************************************************
+  * Metodo: getLogScaleCheck
+  * Funcao: Retorna o CheckBox de escala log
+  * Parametros: nenhum
+  * Retorno: CheckBox
+  *************************************************************** */
+  public CheckBox getLogScaleCheck() {
+    return logScaleCheck;
+  }
 }//fim da classe ControlPanel

@@ -68,12 +68,23 @@ public class FloodingApp extends Application {
         }//fim do catch
 
         GraphPane graphPane = new GraphPane(graph);
-        ControlPanel controlPanel = new ControlPanel(graph);
         ResultsTable resultsTable = new ResultsTable();
         ComparisonChart comparisonChart = new ComparisonChart(resultsTable);
         EventLogPane eventLogPane = new EventLogPane();
 
+        // ControlPanel precisa do controller, mas controller precisa do controlPanel
+        // Vamos criar o controlPanel sem controller primeiro, depois criar controller
+        // e setar no controlPanel via reflexao ou criando depois
+        ControlPanel controlPanel = new ControlPanel(null, graph);
         SimulationController controller = new SimulationController(controlPanel, graphPane, resultsTable);
+        controlPanel.setController(controller);
+
+        // Agora seta o controller no controlPanel
+        // Precisamos acessar o campo privado controller do ControlPanel
+        // Como nao tem setter, vamos usar reflexao ou adicionar um metodo
+        // Por simplicidade, vamos adicionar um metodo setController no ControlPanel
+        // Mas para evitar mudancas grandes, vamos criar o controlPanel depois
+        // Melhor: vamos refazer a ordem
 
         // Liga o log de eventos
         controller.setLogConsumer(lines -> {
@@ -136,38 +147,47 @@ public class FloodingApp extends Application {
         StackPane centerPane = new StackPane();
         centerPane.getChildren().add(graphPane);
 
-        // Contadores sobrepostos no canto superior esquerdo
+        // Contadores sobrepostos no canto superior esquerdo (D3)
         VBox overlay = new VBox(4.0);
         overlay.setPadding(new Insets(12.0));
-        overlay.setStyle("-fx-background-color: rgba(28, 36, 48, 0.9); " +
-                "-fx-border-color: #2b3544; -fx-border-radius: 8; " +
-                "-fx-background-radius: 8;");
-        overlay.setMaxWidth(220.0);
+        overlay.getStyleClass().add("contador-overlay");
+        overlay.setMaxWidth(280.0);
         overlay.setMouseTransparent(true);
 
-        Label lblPackets = new Label("Pacotes: 0");
-        lblPackets.setStyle("-fx-text-fill: #e6edf3; -fx-font-size: 13px;");
-        Label lblTime = new Label("Tempo: 0 ms");
-        lblTime.setStyle("-fx-text-fill: #e6edf3; -fx-font-size: 13px;");
-        Label lblSnapshot = new Label("Snapshot: --");
-        lblSnapshot.setStyle("-fx-text-fill: #4c9aff; -fx-font-size: 13px; -fx-font-weight: bold;");
+        Label lblPackets = new Label("Pacotes");
+        lblPackets.getStyleClass().add("contador-rotulo");
+        Label lblPacketsValue = new Label("0");
+        lblPacketsValue.getStyleClass().add("contador-valor");
 
-        overlay.getChildren().addAll(lblPackets, lblTime, lblSnapshot);
+        Label lblTime = new Label("Tempo virtual");
+        lblTime.getStyleClass().add("contador-rotulo");
+        Label lblTimeValue = new Label("0 ms");
+        lblTimeValue.getStyleClass().add("contador-valor");
+
+        Label lblSnapshot = new Label("Snapshot: --");
+        lblSnapshot.getStyleClass().add("contador-snapshot");
+
+        Label lblFinished = new Label("");
+        lblFinished.getStyleClass().add("contador-finalizada");
+        lblFinished.setVisible(false);
+        lblFinished.setManaged(false);
+
+        overlay.getChildren().addAll(
+            lblPackets, lblPacketsValue,
+            lblTime, lblTimeValue,
+            lblSnapshot,
+            lblFinished
+        );
         StackPane.setAlignment(overlay, javafx.geometry.Pos.TOP_LEFT);
         StackPane.setMargin(overlay, new Insets(16.0));
         centerPane.getChildren().add(overlay);
 
         // Guarda referencias para atualizacao via controller
-        // Vamos expor metodos no GraphPane ou usar propriedades
-        // Por simplicidade, o controller atualiza labels via reflection
-        // ou podemos adicionar um callback. Vamos fazer o controller
-        // atualizar diretamente os labels.
-        controlPanel.setOverlayLabels(lblPackets, lblTime, lblSnapshot);
+        controlPanel.setOverlayLabels(lblPacketsValue, lblTimeValue, lblSnapshot, lblFinished);
 
         root.setCenter(centerPane);
 
-        // Direita: ControlPanel ja organizado em secoes
-        controlPanel.getStyleClass().add("secao");
+        // Direita: ControlPanel
         root.setRight(controlPanel);
 
         // Inferior: TabPane com abas Log, Resultados, Comparacao
@@ -184,11 +204,13 @@ public class FloodingApp extends Application {
         bottomTabs.getTabs().addAll(tabLog, tabResultados, tabComparacao);
         root.setBottom(bottomTabs);
 
-        Scene scene = new Scene(root, 1100.0, 800.0);
+        Scene scene = new Scene(root, 1100.0, 700.0);
         Theme.apply(scene);
 
         stage.setTitle("Roteamento por Inundacao");
         stage.setScene(scene);
+        stage.setMinWidth(1100);
+        stage.setMinHeight(700);
         stage.show();
     }//fim do metodo start
 

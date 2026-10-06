@@ -49,6 +49,7 @@ public final class ResultsTable {
 
     // Callback para notificar mudancas (ex.: redesenhar grafico)
     private Runnable onChangeCallback;
+    private boolean logScale = true;
 
     private final RowData[] rows = new RowData[4];
     private final ObservableList<RowData> items = FXCollections.observableArrayList();
@@ -202,6 +203,26 @@ public final class ResultsTable {
     public Button getClearButton() {
         return clearButton;
     }//fim do metodo getClearButton
+
+    /* ***************************************************************
+    * Metodo: setLogScale
+    * Funcao: define se a escala logaritmica esta ativa (para grafico).
+    * Parametros: logScale - true para escala log
+    * Retorno: void
+    *************************************************************** */
+    public void setLogScale(boolean logScale) {
+        this.logScale = logScale;
+    }//fim do metodo setLogScale
+
+    /* ***************************************************************
+    * Metodo: isLogScale
+    * Funcao: retorna se a escala logaritmica esta ativa.
+    * Parametros: nenhum
+    * Retorno: boolean
+    *************************************************************** */
+    public boolean isLogScale() {
+        return logScale;
+    }//fim do metodo isLogScale
 
     /* ***************************************************************
     * Metodo: getSamples
