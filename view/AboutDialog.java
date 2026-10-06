@@ -18,12 +18,6 @@ import javafx.scene.control.Alert.AlertType;
  */
 public final class AboutDialog {
 
-    public static final String OPTION4_TEXT =
-        "Versao 4: Flooding com deduplicacao por janela de tempo por no. "
-        + "Cada no mantem o instante da ultima observacao de cada messageId. "
-        + "Se uma copia chegar dentro da janela configurada, e descartada como "
-        + "duplicata. Duplicatas nao renovam o registro. Janela 0 equivale a V3.";
-
     private AboutDialog() {
     }
 
@@ -36,16 +30,13 @@ public final class AboutDialog {
     public static void show() {
         Alert alert = new Alert(AlertType.INFORMATION);
         alert.setTitle("Sobre");
-        alert.setHeaderText("Roteamento por Inundacao - Redes de Computadores II");
+        alert.setHeaderText("Roteamento por Inundacao - Redes II (UESB)");
         alert.setContentText(
-            "Autor: Juan Prado Da Silva\n" +
-            "Matricula: 202310291\n" +
-            "Disciplina: Redes de Computadores II (UESB)\n\n" +
-            "Versoes implementadas:\n" +
-            "V1 - Envia por todas as interfaces\n" +
-            "V2 - Envia por todas menos a de chegada\n" +
-            "V3 - V2 + verificacao e decremento de TTL\n" +
-            "V4 - " + OPTION4_TEXT
+            "Autor: Juan Prado Da Silva | Matricula: 202310291\n" +
+            "V1: Envia por todas as interfaces.\n" +
+            "V2: Envia por todas menos a de chegada.\n" +
+            "V3: V2 + verifica e decrementa TTL.\n" +
+            "V4: V3 + deduplica por janela de tempo por no."
         );
         alert.showAndWait();
     }//fim do metodo show

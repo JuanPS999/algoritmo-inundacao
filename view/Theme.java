@@ -57,7 +57,7 @@ public final class Theme {
         "  -fx-focus-color: #4c9aff; " +
         "  -fx-faint-focus-color: transparent; " +
         "  -fx-text-base-color: #e6edf3; " +
-        "  -fx-font-size: 13px; " +
+        "  -fx-font-size: 14px; " +
         "}" +
         ".primario { " +
         "  -fx-background-color: #4c9aff; " +
@@ -73,6 +73,12 @@ public final class Theme {
         "  -fx-border-width: 1; " +
         "  -fx-border-radius: 8; " +
         "  -fx-padding: 12; " +
+        "  -fx-spacing: 12; " +
+        "}" +
+        ".secao-titulo { " +
+        "  -fx-font-size: 12px; " +
+        "  -fx-text-fill: #4c9aff; " +
+        "  -fx-font-weight: bold; " +
         "}" +
         "ComboBox, Spinner, TextField, Slider { " +
         "  -fx-background-color: #1c2430; " +
@@ -120,14 +126,16 @@ public final class Theme {
         "  -fx-border-color: transparent transparent #2b3544 transparent; " +
         "}" +
         "TabPane .tab { " +
-        "  -fx-background-color: #1c2430; " +
+        "  -fx-background-color: transparent; " +
         "  -fx-text-fill: #8b98a9; " +
         "  -fx-border-color: transparent; " +
         "  -fx-padding: 6 12 6 12; " +
         "}" +
         "TabPane .tab:selected { " +
-        "  -fx-background-color: #1c2430; " +
-        "  -fx-text-fill: #4c9aff; " +
+        "  -fx-background-color: transparent; " +
+        "  -fx-text-fill: #e6edf3; " +
+        "  -fx-border-color: transparent transparent #4c9aff transparent; " +
+        "  -fx-border-width: 0 0 2 0; " +
         "}" +
         "MenuBar { " +
         "  -fx-background-color: #151b23; " +
@@ -149,6 +157,48 @@ public final class Theme {
         "  -fx-background-color: #1c2430; " +
         "  -fx-border-color: #2b3544; " +
         "  -fx-accent: #4c9aff; " +
+        "}" +
+        /* Slider styling */
+        ".slider .track { " +
+        "  -fx-background-color: #2b3544; " +
+        "  -fx-background-radius: 2; " +
+        "  -fx-pref-height: 4; " +
+        "}" +
+        ".slider .thumb { " +
+        "  -fx-background-color: #4c9aff; " +
+        "  -fx-background-radius: 8; " +
+        "  -fx-pref-width: 14; " +
+        "  -fx-pref-height: 14; " +
+        "}" +
+        /* Contador overlay card */
+        ".contador-overlay { " +
+        "  -fx-background-color: rgba(28, 36, 48, 0.95); " +
+        "  -fx-border-color: #2b3544; " +
+        "  -fx-border-width: 1; " +
+        "  -fx-border-radius: 8; " +
+        "  -fx-background-radius: 8; " +
+        "  -fx-padding: 12; " +
+        "  -fx-spacing: 4; " +
+        "}" +
+        ".contador-rotulo { " +
+        "  -fx-font-size: 12px; " +
+        "  -fx-text-fill: #8b98a9; " +
+        "}" +
+        ".contador-valor { " +
+        "  -fx-font-size: 28px; " +
+        "  -fx-text-fill: #e6edf3; " +
+        "  -fx-font-weight: bold; " +
+        "}" +
+        ".contador-snapshot { " +
+        "  -fx-font-size: 16px; " +
+        "  -fx-text-fill: #4c9aff; " +
+        "  -fx-font-weight: bold; " +
+        "  -fx-padding: 8 0 0 0; " +
+        "}" +
+        ".contador-finalizada { " +
+        "  -fx-font-size: 12px; " +
+        "  -fx-text-fill: #f85149; " +
+        "  -fx-padding: 8 0 0 0; " +
         "}";
 
     /* ***************************************************************

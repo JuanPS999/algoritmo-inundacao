@@ -27,7 +27,7 @@ import model.Simulator;
 
 public class GraphPane extends Pane {
 
-    private static final double NODE_RADIUS = 22.0;
+    private static final double NODE_RADIUS = 28.0;
     private static final double PACKET_RADIUS = 6.0;
     private static final double MARGIN = 40.0;
     private static final double MIN_LAYOUT_RADIUS = 40.0;
@@ -200,11 +200,13 @@ public class GraphPane extends Pane {
     * Metodo: drawLinks
     * Funcao: desenha os links; clicar em um link alterna entre
     *         habilitado (Theme.LINK) e desabilitado (Theme.ERRO tracejado).
+    *         Cor do link um pouco mais clara.
     * Parametros: nenhum
     * Retorno: void
     *************************************************************** */
     private void drawLinks() {
         linksLayer.getChildren().clear();
+        Color linkColor = Color.web("#4a5a70");
         for (Link link : graph.getLinks()) {
             double x1 = nodeX[link.getA() - 1];
             double y1 = nodeY[link.getA() - 1];
@@ -213,7 +215,7 @@ public class GraphPane extends Pane {
             Line line = new Line(x1, y1, x2, y2);
             line.setStrokeWidth(2.0);
             if (link.isEnabled()) {
-                line.setStroke(Theme.LINK);
+                line.setStroke(linkColor);
             }//fim do if
             else {
                 line.setStroke(Theme.ERRO);
@@ -233,8 +235,9 @@ public class GraphPane extends Pane {
 
     /* ***************************************************************
     * Metodo: addWeightLabel
-    * Funcao: escreve o peso do link sobre um fundo Theme.BG2.
-    *         Texto em Theme.MUDO.
+    * Funcao: escreve o peso do link dentro de uma etiqueta (retangulo
+    *         arredondado com fundo BG0) para as linhas nao cruzarem o texto.
+    *         Fonte 12px, cor MUDO.
     * Parametros: weight = peso; centerX, centerY = ponto medio do link
     * Retorno: void
     *************************************************************** */
@@ -245,14 +248,19 @@ public class GraphPane extends Pane {
         text.setFill(Theme.MUDO);
         double width = text.getLayoutBounds().getWidth();
         double height = text.getLayoutBounds().getHeight();
-        text.setX(centerX - width / 2.0);
-        text.setY(centerY);
-        Rectangle background = new Rectangle(centerX - width / 2.0 - 3.0,
-                centerY - height / 2.0, width + 6.0, height);
-        background.setFill(Theme.BG2);
-        background.setOpacity(0.9);
+        double paddingX = 6.0;
+        double paddingY = 2.0;
+        double rectWidth = width + 2 * paddingX;
+        double rectHeight = height + 2 * paddingY;
+        Rectangle background = new Rectangle(centerX - rectWidth / 2.0,
+                centerY - rectHeight / 2.0, rectWidth, rectHeight);
+        background.setFill(Theme.BG0);
+        background.setArcWidth(8.0);
+        background.setArcHeight(8.0);
         background.setMouseTransparent(true);
         text.setMouseTransparent(true);
+        text.setX(centerX - width / 2.0);
+        text.setY(centerY);
         linksLayer.getChildren().addAll(background, text);
     }//fim do metodo addWeightLabel
 
@@ -260,7 +268,7 @@ public class GraphPane extends Pane {
     * Metodo: drawNodes
     * Funcao: desenha os nos com rotulo; transmissor Theme.TRANSMISSOR,
     *         receptor Theme.RECEPTOR, demais Theme.BG2 com borda Theme.BORDA.
-    *         Destino atingido: contorno Theme.ACENTO grosso.
+    *         Raio 28, letra 16px negrito. Destino atingido: contorno ACENTO grosso.
     * Parametros: nenhum
     * Retorno: void
     *************************************************************** */
@@ -280,7 +288,7 @@ public class GraphPane extends Pane {
                 circle.setStrokeWidth(2.0);
             }//fim do else
             Text label = new Text(nodes.get(i).getLabel());
-            label.setFont(Font.font(16));
+            label.setFont(Font.font(null, javafx.scene.text.FontWeight.BOLD, 16));
             label.setTextOrigin(VPos.CENTER);
             label.setFill(Theme.TEXTO);
             label.setX(nodeX[i] - label.getLayoutBounds().getWidth() / 2.0);
