@@ -20,10 +20,6 @@ import model.LatencyProvider;
 import model.Link;
 import model.Packet;
 import model.Simulator;
-import model.Strategy1AllInterfaces;
-import model.Strategy2ExceptIncoming;
-import model.Strategy3Ttl;
-import model.Strategy4Custom;
 import view.ControlPanel;
 import view.GraphPane;
 
@@ -80,25 +76,6 @@ public class SimulationController {
   }//fim do metodo updateEndpoints
 
   /* ***************************************************************
-  * Metodo: createStrategy
-  * Funcao: cria a estrategia de encaminhamento da versao escolhida.
-  * Parametros: version = versao de 1 a 4
-  * Retorno: ForwardingStrategy da versao
-  *************************************************************** */
-  private ForwardingStrategy createStrategy(int version) {
-    switch (version) {
-      case 1:
-        return new Strategy1AllInterfaces();
-      case 2:
-        return new Strategy2ExceptIncoming();
-      case 4:
-        return new Strategy4Custom();
-      default:
-        return new Strategy3Ttl();
-    }//fim do switch
-  }//fim do metodo createStrategy
-
-  /* ***************************************************************
   * Metodo: start
   * Funcao: cria uma nova simulacao com as escolhas do painel e inicia
   *         a animacao. No modo ao vivo nao ha limite de pacotes.
@@ -116,7 +93,7 @@ public class SimulationController {
     int version = controlPanel.getVersion();
     showTtl = (version >= 3);
     origins.clear();
-    simulator = new Simulator(graphPane.getGraph(), createStrategy(version),
+    simulator = new Simulator(graphPane.getGraph(), StrategyFactory.create(version),
         new LatencyProvider(System.nanoTime()), sourceId, destinationId,
         controlPanel.getTtl());
     simulator.setListener(new Simulator.Listener() {
