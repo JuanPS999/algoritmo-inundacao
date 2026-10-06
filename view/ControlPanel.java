@@ -34,15 +34,18 @@ public class ControlPanel extends VBox {
   private final ComboBox<String> sourceBox = new ComboBox<String>();
   private final ComboBox<String> destinationBox = new ComboBox<String>();
   private final Spinner<Integer> ttlSpinner;
+  private final Spinner<Integer> batchCountSpinner;
   private final Slider speedSlider = new Slider(0.25, 10.0, 2.0);
   private final Label speedLabel = new Label();
   private final Button startButton = new Button("Iniciar");
   private final Button pauseButton = new Button("Pausar");
   private final Button resetButton = new Button("Resetar");
+  private final Button batchButton = new Button("Executar N vezes");
   private final Label counterLabel = new Label();
   private final Label timeLabel = new Label();
   private final Label snapshotLabel = new Label(NO_SNAPSHOT);
   private final Label statusLabel = new Label("Pronto.");
+  private final Label batchProgressLabel = new Label("0/0");
 
   /* ***************************************************************
   * Metodo: ControlPanel
@@ -72,11 +75,16 @@ public class ControlPanel extends VBox {
     ttlSpinner = new Spinner<Integer>(1, 99, Math.max(1, graph.diameter()));
     ttlSpinner.setEditable(true);
 
+    batchCountSpinner = new Spinner<Integer>(1, 1000, 30);
+    batchCountSpinner.setEditable(true);
+    batchCountSpinner.setMaxWidth(Double.MAX_VALUE);
+
     versionBox.setMaxWidth(Double.MAX_VALUE);
     sourceBox.setMaxWidth(Double.MAX_VALUE);
     destinationBox.setMaxWidth(Double.MAX_VALUE);
     ttlSpinner.setMaxWidth(Double.MAX_VALUE);
     speedSlider.setMaxWidth(Double.MAX_VALUE);
+    batchCountSpinner.setMaxWidth(Double.MAX_VALUE);
 
     speedSlider.valueProperty().addListener(
         (observable, oldValue, newValue) -> {
@@ -85,7 +93,9 @@ public class ControlPanel extends VBox {
     updateSpeedLabel();
 
     pauseButton.setDisable(true);
+    batchButton.setDisable(false);
     HBox buttons = new HBox(6.0, startButton, pauseButton, resetButton);
+    HBox batchBox = new HBox(6.0, batchButton, batchProgressLabel);
 
     snapshotLabel.setWrapText(true);
     snapshotLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold;");
@@ -97,6 +107,7 @@ public class ControlPanel extends VBox {
         titleLabel("Receptor"), destinationBox,
         titleLabel("TTL inicial (versoes 3 e 4)"), ttlSpinner,
         speedLabel, speedSlider, buttons,
+        titleLabel("Execucao em lote"), batchCountSpinner, batchBox,
         titleLabel("Medicao"), counterLabel, timeLabel, snapshotLabel,
         statusLabel);
   }//fim do construtor ControlPanel
@@ -194,6 +205,42 @@ public class ControlPanel extends VBox {
   }//fim do metodo getTtl
 
   /* ***************************************************************
+  * Metodo: getBatchCount
+  * Funcao: informa o numero de execucoes do lote.
+  * Parametros: nenhum
+  * Retorno: int com o numero de execucoes (minimo 1)
+  *************************************************************** */
+  public int getBatchCount() {
+    try {
+      int typed = Integer.parseInt(batchCountSpinner.getEditor().getText().trim());
+      return Math.max(1, typed);
+    }//fim do try
+    catch (NumberFormatException exception) {
+      return batchCountSpinner.getValue().intValue();
+    }//fim do catch
+  }//fim do metodo getBatchCount
+
+  /* ***************************************************************
+  * Metodo: setOnBatch
+  * Funcao: registra a acao do botao Executar N vezes.
+  * Parametros: action = acao a executar
+  * Retorno: void
+  *************************************************************** */
+  public void setOnBatch(Runnable action) {
+    batchButton.setOnAction(event -> action.run());
+  }//fim do metodo setOnBatch
+
+  /* ***************************************************************
+  * Metodo: setBatchProgress
+  * Funcao: atualiza o rotulo de progresso do lote.
+  * Parametros: current = execucao atual; total = total de execucoes
+  * Retorno: void
+  *************************************************************** */
+  public void setBatchProgress(int current, int total) {
+    batchProgressLabel.setText(current + "/" + total);
+  }//fim do metodo setBatchProgress
+
+  /* ***************************************************************
   * Metodo: getSpeed
   * Funcao: informa o fator de velocidade escolhido no slider.
   * Parametros: nenhum
@@ -267,8 +314,10 @@ public class ControlPanel extends VBox {
     sourceBox.setDisable(running);
     destinationBox.setDisable(running);
     ttlSpinner.setDisable(running);
+    batchCountSpinner.setDisable(running);
     startButton.setDisable(running);
     pauseButton.setDisable(!running);
+    batchButton.setDisable(running);
   }//fim do metodo setRunning
 
   /* ***************************************************************
