@@ -1,25 +1,25 @@
-# Projeto: Roteamento por Inundação (Redes de Computadores II, UESB)
+# Projeto: Roteamento por Inundacao (Redes de Computadores II, UESB)
 
 ## Contexto
-Trabalho acadêmico. Implementar 4 versões de roteamento por inundação com GUI em JavaFX e
-medir quantos pacotes são gerados até o destino ser atingido, por versão.
-  Versão 1: cada pacote que chega é enviado por TODAS as interfaces do roteador.
-  Versão 2: igual à 1, EXCETO pela interface de chegada.
-  Versão 3: igual à 2, mais verificação/decremento de TTL.
-  Versão 4: igual à 3, mais uma otimização do aluno. FICA COMO STUB (delega à Versão 3,
-            com TODO claro). NÃO invente a otimização.
+Trabalho academico. Implementar 4 versoes de roteamento por inundacao com GUI em JavaFX e
+medir quantos pacotes sao gerados ate o destino ser atingido, por versao.
+  Versao 1: cada pacote que chega e enviado por TODAS as interfaces do roteador.
+  Versao 2: igual a 1, EXCETO pela interface de chegada.
+  Versao 3: igual a 2, mais verificacao/decremento de TTL.
+  Versao 4: igual a 3, mais deduplicacao por janela de tempo por no.
+             Nao inventar outras otimizacoes.
 
 ## Modo de trabalho
-- Trabalho por marcos (ver seção Marcos). Execute SOMENTE o marco que eu pedir.
-- Dentro de um marco, trabalhe com autonomia e escreva o plano em até 5 linhas antes.
-- Cada marco deve ser concluído integralmente antes da resposta final. Não peça
-  autorização para continuar uma funcionalidade que já pertence ao marco atual.
+- Trabalho por marcos (ver secao Marcos). Execute SOMENTE o marco que eu pedir.
+- Dentro de um marco, trabalhe com autonomia e escreva o plano em ate 5 linhas antes.
+- Cada marco deve ser concluido integralmente antes da resposta final. Nao peca
+  autorizacao para continuar uma funcionalidade que ja pertence ao marco atual.
 - Pare e pergunte apenas para: instalar pacotes (sudo/pacman), apagar arquivos fora do
-  projeto, ou mudança de arquitetura.
-- Ao fim de cada marco: compile, rode o que for possível, faça `git commit -m "Marco N"`,
+  projeto, ou mudanca de arquitetura.
+- Ao fim de cada marco: compile, rode o que for possivel, faca `git commit -m "Marco N"`,
   e resuma em poucas linhas o que foi feito, como executar e o que ficou pendente.
-- Não escreva testes automatizados com valores esperados; os testes serão feitos depois.
-- Sem dependências externas.
+- Nao escreva testes automatizados com valores esperados; os testes serao feitos depois.
+- Sem dependencias externas.
 - Execucao de processos (regra obrigatoria): testes que executam algoritmos
   potencialmente nao terminantes devem sempre possuir timeout explicito. Um timeout
   pode ser um resultado esperado e nao deve ser interpretado automaticamente como
@@ -40,85 +40,117 @@ medir quantos pacotes são gerados até o destino ser atingido, por versão.
 
 ## Ambiente e build
 - JDK 1.8.0_351 com JavaFX embutido (jre/lib/ext/jfxrt.jar), o mesmo do professor.
-  Confirme `javac -version` = 1.8.x antes de compilar. Não use JDK mais novo.
+  Confirme `javac -version` = 1.8.x antes de compilar. Nao use JDK mais novo.
 - Sem Maven/Gradle. Apenas build.sh e run.sh na raiz: build.sh compila todos os .java
   com `javac -encoding UTF-8 -d build`; run.sh executa `java -cp build Principal`.
   Nenhum caminho fixo.
 - Crie .gitignore com `build/` e `*.class`.
-- Código: apenas recursos do Java 8. Proibido: var, records, List.of/Map.of, text blocks,
+- Codigo: apenas recursos do Java 8. Proibido: var, records, List.of/Map.of, text blocks,
   switch expressions, String.isBlank/strip/repeat, Optional.isEmpty, module-info.java.
-- JavaFX: apenas APIs clássicas (Pane, Circle, Line, Label, Button, ComboBox, Spinner,
+- JavaFX: apenas APIs classicas (Pane, Circle, Line, Label, Button, ComboBox, Spinner,
   Slider, CheckBox, TableView, MenuBar, Alert, AnimationTimer, Task).
 
 ## Arquivo backbone.txt (raiz do projeto)
-- 1ª linha: número de nós, possivelmente com ';' final (ex.: "8;"): faça trim e remova o ';'.
-- Demais linhas: NO1;NO2;PESO. Aresta não direcionada, listada uma única vez.
-- Ignore linhas em branco e espaços. Valide ids em [1..N]. Em caso de erro, mensagem clara.
-- Rótulos na GUI: 1->A, 2->B, ... (nós numéricos internamente).
+- 1a linha: numero de nos, possivelmente com ';' final (ex.: "8;"): faca trim e remova
+  o ';'.
+- Demais linhas: NO1;NO2;PESO. Aresta nao direcionada, listada uma unica vez.
+- Ignore linhas em branco e espacos. Valide ids em [1..N]. Em caso de erro, mensagem clara.
+- Rotulos na GUI: 1->A, 2->B, ... (nos numericos internamente).
 - O backbone.txt de exemplo (grafo do Tanenbaum) tem exatamente, um item por linha:
-  8;  1;2;2  1;7;6  2;3;7  2;5;2  3;6;3  3;4;3  4;8;2  5;7;1  5;6;2  6;8;2  7;8;4
+  8;
+  1;2;2
+  1;7;6
+  2;3;7
+  2;5;2
+  3;6;3
+  3;4;3
+  4;8;2
+  5;7;1
+  5;6;2
+  6;8;2
+  7;8;4
 
-## Semântica da simulação (decisões fechadas)
-- Núcleo em TEMPO VIRTUAL: fila de eventos (PriorityQueue por instante de chegada, com
+## Semantica da simulacao (decisoes fechadas)
+- Nucleo em TEMPO VIRTUAL: fila de eventos (PriorityQueue por instante de chegada, com
   desempate FIFO). Sem Thread.sleep e sem uma thread por pacote/roteador.
-- Cada nó tem uma lista de interfaces (links). Cada pacote carrega: id, TTL e a interface
-  pela qual chegou.
-- Início: o transmissor gera uma cópia por interface (nas 4 versões; nas 3 e 4 com TTL
-  inicial). Cada cópia colocada em um link conta como 1 pacote gerado.
-- Chegada de um pacote no nó n no instante t:
+- Cada no tem uma lista de interfaces (links). Cada pacote carrega: id, messageId, TTL
+  e a interface pela qual chegou.
+- O id identifica uma copia individual. O messageId identifica a mensagem logica e e
+  compartilhado por todas as copias e encaminhamentos dessa mensagem.
+- O messageId deve ser atribuido uma unica vez na origem logica da simulacao e precisa
+  ser unico apenas dentro de cada execucao.
+- Inicio: o transmissor gera uma copia por interface (nas 4 versoes; nas 3 e 4 com TTL
+  inicial). Cada copia colocada em um link conta como 1 pacote gerado.
+- Na chegada de um pacote no no n no instante t:
   1) Se o link foi desabilitado enquanto o pacote estava nele: descarte.
-  2) Se n é o receptor e ainda não há snapshot: registre snapshot (contador atual, t).
-  3) Pergunte à estratégia por quais interfaces reenviar; o receptor TAMBÉM reencaminha.
-  4) Para cada cópia enviada: contador++ e chegada agendada em
+  2) Se n e o receptor e ainda nao ha snapshot: registre snapshot (contador atual, t).
+  3) Pergunte a estrategia por quais interfaces reenviar; o receptor TAMBEM reencaminha.
+  4) Para cada copia enviada: contador++ e chegada agendada em
      t + LatencyProvider.nextLatencyMs().
-- Versão 1: ignora TTL e envia por todas as interfaces. Versão 2: todas menos a de chegada.
-  Versão 3: como a 2, e antes de reenviar faz ttl = ttl - 1; se ttl <= 0, descarta (o
-  TTL máximo equivale ao número de saltos; a checagem de entrega vem antes do descarte).
-- LatencyProvider.nextLatencyMs(): inteiro em [1, 500], chamado A CADA transmissão em um
-  link. Aceita semente opcional. O peso da aresta (métrica) NÃO influencia a latência.
-- TTL padrão = diâmetro do grafo em saltos (BFS), editável na GUI.
-- Modo ao vivo (GUI): SEM limites, sem trava de segurança e sem throttling. O professor
-  pediu que a versão 1 trave; a UI travando é o comportamento esperado. Não adicione
-  proteções.
-- A medida de interesse é o snapshot do contador na primeira chegada ao destino.
+- Versao 1: ignora TTL e envia por todas as interfaces.
+- Versao 2: todas menos a de chegada.
+- Versao 3: como a 2, e antes de reenviar faz ttl = ttl - 1; se ttl <= 0, descarta
+  (o TTL maximo equivale ao numero de saltos; a checagem de entrega vem antes do descarte).
+- Versao 4: como a 3, com deduplicacao por janela de tempo por no.
+  Cada no mantem o instante da ultima observacao de cada messageId.
+  Se uma copia chegar dentro da janela configurada, e descartada como duplicata.
+  Duplicatas nao renovam o registro.
+  A janela 0 equivale a V3.
+- Na V4, o registro feito na origem em t=0 conta como a primeira observacao daquela
+  mensagem naquele no.
+- Na V4, registros expirados podem ser removidos somente durante uma consulta.
+  Nao criar timers nem novos eventos para expiracao.
+- A V4 deve possuir uma instancia nova da estrategia em cada execucao. Estado de
+  deduplicacao nao pode ser compartilhado entre execucoes.
+- LatencyProvider.nextLatencyMs(): inteiro em [1, 500], chamado A CADA transmissao em um
+  link. Aceita semente opcional. O peso da aresta (metrica) NAO influencia a latencia.
+- TTL padrao = diametro do grafo em saltos (BFS), editavel na GUI.
+- Modo ao vivo (GUI): SEM limites, sem trava de seguranca e sem throttling. O professor
+  pediu que a versao 1 trave; a UI travando e o comportamento esperado. Nao adicione
+  protecoes.
+- A medida de interesse e o snapshot do contador na primeira chegada ao destino.
 
 ## Arquitetura (MVC na raiz do projeto, sem pasta src)
-    Principal.java   main no pacote default; lança a GUI
+    Principal.java   main no pacote default; lanca a GUI
     backbone.txt, build.sh, run.sh, .gitignore
     model/       Node, Link, Graph, Packet, Simulator, ForwardingStrategy,
                  Strategy1AllInterfaces, Strategy2ExceptIncoming, Strategy3Ttl,
-                 Strategy4Custom (stub), LatencyProvider, RunResult
-    controller/  SimulationController, BatchRunner
+                 Strategy4Custom, LatencyProvider, RunResult
+    controller/  SimulationController, BatchRunner, StrategyFactory
     view/        FloodingApp, GraphPane, ControlPanel, ResultsTable, AboutDialog
-    util/        BackboneLoader, ConsoleRunner, GraphInfo
-    img/         só se houver arquivos de imagem (não criar vazia)
+    util/        BackboneLoader, ConsoleRunner, GraphInfo, WindowSweep
+    img/         so se houver arquivos de imagem (nao criar vazia)
 - Pacotes Java: model, controller, view, util (sem prefixo "flooding").
-- Dependências: model não depende de JavaFX, nem de controller, view ou util.
-  view usa model. controller coordena model e view. util só tem utilitários, sem estado
+- Dependencias: model nao depende de JavaFX, nem de controller, view ou util.
+  view usa model. controller coordena model e view. util so tem utilitarios, sem estado
   de GUI, e pode usar model.
 - Simulator: pull-based, com `advanceTo(long virtualTimeMs)` e `inFlight()` para a GUI, e
   `runUntilFirstArrival()` para o modo em lote. O limite do lote (ABORT_LIMIT = 2000000)
-  é constante do próprio Simulator e vale SÓ em `runUntilFirstArrival`.
-- ConsoleRunner (args: versão origem destino ttl semente) imprime os eventos e o
-  snapshot. Serve para depuração e testes futuros.
+  e constante do proprio Simulator e vale SO em `runUntilFirstArrival`.
+- ConsoleRunner (args: versao origem destino ttl semente) imprime os eventos e o
+  snapshot. Na V4, pode tambem informar o numero de duplicatas descartadas.
+- StrategyFactory cria as estrategias. A assinatura existente deve continuar valida.
+  Para a V4, deve existir suporte a informar janelaMs quando necessario.
+- WindowSweep (V4): utilitario de linha de comando para executar varias simulacoes da V4
+  com diferentes valores de janela e comparar os resultados.
 - `javac Principal.java` executado na raiz deve compilar o projeto da GUI.
 
 ## GUI
-- Layout do grafo automático, em círculo. Peso exibido em cada aresta.
-- ComboBox da versão (1..4), ComboBox de transmissor e de receptor, Spinner de TTL,
-  Slider de velocidade (0.25x a 10x, padrão 2x), botões Iniciar / Pausar / Resetar.
-- Animação por AnimationTimer: avança o tempo virtual, chama advanceTo e desenha cada
-  pacote em trânsito interpolado ao longo do link, com o valor do TTL ao lado (nas versões
+- Layout do grafo automatico, em circulo. Peso exibido em cada aresta.
+- ComboBox da versao (1..4), ComboBox de transmissor e de receptor, Spinner de TTL,
+  Slider de velocidade (0.25x a 10x, padrao 2x), botoes Iniciar / Pausar / Resetar.
+- Animacao por AnimationTimer: avanca o tempo virtual, chama advanceTo e desenha cada
+  pacote em transito interpolado ao longo do link, com o valor do TTL ao lado (nas versoes
   1 e 2, sem TTL). Transmissor em verde, receptor em azul.
 - Contador ao vivo e o valor do snapshot na primeira chegada, em destaque.
 - Clique em uma aresta alterna habilitada/desabilitada (tracejada em vermelho quando
-  desabilitada). Links desabilitados não transmitem.
-- Tabela de resultados por versão: última execução, n, média, desvio-padrão.
-- Modo lote: "Executar N vezes" (padrão 30) em Task de fundo, sem animação, semente
-  base + i, parando na primeira chegada ou quando a fila esvaziar (destino inalcançável)
-  ou ao atingir ABORT_LIMIT (marcar como "abortada" e excluir da média).
-- Menu Arquivo (Recarregar backbone, Sair) e Ajuda > Sobre. O Sobre mostra a documentação
-  da Opção 4 a partir de uma constante de texto (hoje: placeholder).
+  desabilitada). Links desabilitados nao transmitem.
+- Tabela de resultados por versao: ultima execucao, n, media, desvio-padrao.
+- Modo lote: "Executar N vezes" (padrao 30) em Task de fundo, sem animacao, semente
+  base + i, parando na primeira chegada ou quando a fila esvaziar (destino inalcançavel)
+  ou ao atingir ABORT_LIMIT (marcar como "abortada" e excluir da media).
+- Menu Arquivo (Recarregar backbone, Sair) e Ajuda > Sobre. O Sobre mostra a documentacao
+  da Opcao 4 a partir de uma constante de texto com a explicacao da deduplicacao por janela.
 
 ## Padronizacao de codigo (exigida pelo professor; vale para TODO arquivo)
 - Cabecalho em TODO .java, na primeira linha, exatamente neste formato:
@@ -159,12 +191,14 @@ medir quantos pacotes são gerados até o destino ser atingido, por versão.
   Ordem na classe: constantes/campos estaticos, campos de instancia, construtores,
   metodos agrupados por funcao.
 - Comentarios em portugues sem acento, curtos e uteis (ex.: `//eh o destino`).
+- Toda alteracao de codigo nesta reta final deve preservar V1, V2 e V3, salvo quando o
+  pedido declarar explicitamente uma mudanca de compatibilidade.
 
 ## Marcos
 - Marco 0 (concluido): Ambiente, build.sh, run.sh e hello world JavaFX.
 - Marco 1 (concluido): Modelo + loader + backbone.txt + BFS (diametro) + GraphInfo.
-- Marco 2 (concluido): Nucleo de simulacao, 4 estrategias (4 = stub), LatencyProvider,
-  ConsoleRunner.
+- Marco 2 (concluido): Nucleo de simulacao, 4 estrategias, LatencyProvider,
+  ConsoleRunner. A V4 era stub nesta etapa.
 - Marco 1.5: Migracao MVC + padronizacao dos arquivos existentes. Estrutural: NAO altere
   semantica nem comportamento (algoritmos, TTL, contador, latencia, tempo virtual,
   ConsoleRunner, backbone).
@@ -180,20 +214,36 @@ medir quantos pacotes são gerados até o destino ser atingido, por versão.
 - Marco 3: GUI com grafo, controles, animacao, contador e TTL.
 - Marco 4: Link desabilitavel, tabela de resultados, modo lote, Sobre, ARCHITECTURE.md
   (max. 1 pagina: fluxo de um pacote) e README com instrucoes de execucao.
-- Marco 5: Padronizacao final. Crie check_style.sh na raiz que verifique em todos os
-  .java: cabecalho no formato, nenhum tab, nenhum caractere nao-ASCII, indentacao
-  multipla de 2, linhas de ate 80 colunas, bloco de metodo antes de cada metodo,
-  comentario de fechamento nos blocos. Corrija tudo ate passar limpo. Defina Inicio e
-  Ultima alteracao de cada arquivo pelas datas do git. Confirme que build.sh e
-  `javac Principal.java` compilam do zero.
+- Reta final antes do Marco 5:
+  * Implementar a V4 de verdade conforme a especificacao de deduplicacao por janela.
+  * Modernizar a GUI sem alterar a semantica dos algoritmos.
+  * Adicionar somente funcionalidades pequenas e uteis que tenham sido explicitamente
+    pedidas.
+  * Preservar e testar V1, V2 e V3 antes de avancar.
+- Marco 5: Validacao final e entrega.
+  * Crie check_style.sh na raiz que verifique em todos os .java: cabecalho no formato,
+    nenhum tab, nenhum caractere nao-ASCII, indentacao multipla de 2, linhas de ate 80
+    colunas, bloco de metodo antes de cada metodo, comentario de fechamento nos blocos.
+  * NAO faca uma nova refatoracao arquitetural neste marco.
+  * Corrija somente problemas necessarios para passar a validacao final.
+  * Defina Inicio e Ultima alteracao de cada arquivo pelas datas do git.
+  * Confirme que build.sh e `javac Principal.java` compilam do zero.
+  * Confirme que nao existem arquivos `.class` fora de `build/`.
+  * Rode os testes finais e verifique o conteudo do pacote de entrega.
+  * Commit final "Marco 5".
 
-  ## Prompts curtos (regras fixas para TODO pedido)
-- Siga a secao Padronizacao (cabecalho unico, bloco de metodo, 2 espacos, sem acento,
-  80 colunas).
+## Prompts curtos (regras fixas para TODO pedido)
+- Siga a secao Padronizacao: cabecalho unico, bloco de metodo, 2 espacos, sem acento,
+  80 colunas.
 - Use sempre timeout nos processos java; nunca abra a GUI em primeiro plano.
 - Edite SOMENTE os arquivos citados no pedido; nao reescreva arquivos inteiros sem
   necessidade.
-- Ao terminar: ./build.sh, commit com a mensagem indicada e resumo de ate 5 linhas em
-  texto simples.
+- Mudancas em Simulator e ForwardingStrategy devem ser MINIMAS quando o pedido nao
+  exigir alteracao estrutural nesses arquivos.
+- Preserve V1, V2 e V3 quando o pedido for sobre V4 ou GUI, salvo se houver uma
+  incompatibilidade explicitamente especificada.
+- Nao invente requisitos, funcionalidades ou otimizacoes que nao estejam no pedido.
+- Ao terminar: ./build.sh, execute os testes solicitados, faca o commit com a mensagem
+  indicada e resumo de ate 5 linhas em texto simples.
 - Se algo nao compilar apos 2 tentativas, pare e mostre o erro; nao improvise outra
   arquitetura.

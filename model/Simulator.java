@@ -2,7 +2,7 @@
 * Autor............: Juan Prado Da Silva
 * Matricula........: 202310291
 * Inicio...........: 01/10/2026
-* Ultima alteracao.: 02/10/2026
+* Ultima alteracao.: 06/10/2026
 * Nome.............: Simulator
 * Funcao...........: Nucleo da simulacao em tempo virtual.
 *************************************************************** */
@@ -129,6 +129,10 @@ public class Simulator {
         this.listener = listener;
     }
 
+    public ForwardingStrategy getStrategy() {
+        return strategy;
+    }
+
     public long getVirtualTime() {
         return virtualTime;
     }
@@ -153,19 +157,34 @@ public class Simulator {
     public void start() {
         if (started) return;
         started = true;
-        for (Link link : graph.linksOf(sourceId)) {
-            if (!link.isEnabled()) continue;
-            Packet p = new Packet(nextPacketId++, initialTtl, null);
-            transmit(virtualTime, sourceId, link, p);
+        // V4: registra messageId na origem em t=0
+        if (strategy instanceof model.Strategy4Custom) {
+            model.Strategy4Custom s4 = (model.Strategy4Custom) strategy;
+            // Unico messageId para a mensagem logica desta execucao
+            long msgId = nextPacketId++;
+            s4.registrarNaOrigem(msgId, sourceId, virtualTime);
+            for (Link link : graph.linksOf(sourceId)) {
+                if (!link.isEnabled()) continue;
+                Packet p = new Packet(nextPacketId++, msgId, initialTtl, null);
+                transmit(virtualTime, sourceId, link, p);
+            }
+        } else {
+            for (Link link : graph.linksOf(sourceId)) {
+                if (!link.isEnabled()) continue;
+                Packet p = new Packet(nextPacketId++, 0, initialTtl, null);
+                transmit(virtualTime, sourceId, link, p);
+            }
         }
+        virtualTime = Math.max(virtualTime, 0);
     }
 
     private void transmit(long time, int fromNode, Link link, Packet packet) {
         packetsGenerated++;
         int to = link.other(fromNode);
         long arrival = time + latency.nextLatencyMs();
-        // a copia que viaja carrega a interface de chegada = este link
-        Packet travelling = new Packet(nextPacketId++, packet.getTtl(), link);
+        // a copia que viaja carrega a interface de chegada e o messageId do original
+        Packet travelling = new Packet(nextPacketId++, packet.getMessageId(), packet.getTtl(), link);
+        travelling.setArrivalTime(arrival);
         queue.add(new Arrival(arrival, time, nextSeq++, to, travelling, link));
         if (listener != null) {
             listener.onTransmit(time, fromNode, link, packet, packetsGenerated);
@@ -218,7 +237,7 @@ public class Simulator {
         }
     }
 
-    /** Pacotes atualmente em transito (para desenho na GUI). */
+    /** Pacotes atualmente em transito (para desenho da GUI). */
     public List<InFlight> inFlight() {
         List<InFlight> list = new ArrayList<InFlight>();
         for (Arrival ev : queue) {

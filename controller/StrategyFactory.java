@@ -24,13 +24,24 @@ public class StrategyFactory {
   * Retorno: ForwardingStrategy da versao
   *************************************************************** */
   public static ForwardingStrategy create(int version) {
+    return create(version, 1000);
+  }//fim do metodo create
+
+  /* ***************************************************************
+  * Metodo: create
+  * Funcao: cria a estrategia de encaminhamento da versao escolhida
+  *         com janela de deduplicacao para V4.
+  * Parametros: version = versao de 1 a 4; janelaMs = janela em ms (usada na V4)
+  * Retorno: ForwardingStrategy da versao
+  *************************************************************** */
+  public static ForwardingStrategy create(int version, long janelaMs) {
     switch (version) {
       case 1:
         return new Strategy1AllInterfaces();
       case 2:
         return new Strategy2ExceptIncoming();
       case 4:
-        return new Strategy4Custom();
+        return new Strategy4Custom(janelaMs);
       default:
         return new Strategy3Ttl();
     }//fim do switch

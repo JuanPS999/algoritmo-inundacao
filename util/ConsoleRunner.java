@@ -2,7 +2,7 @@
 * Autor............: Juan Prado Da Silva
 * Matricula........: 202310291
 * Inicio...........: 01/10/2026
-* Ultima alteracao.: 02/10/2026
+* Ultima alteracao.: 06/10/2026
 * Nome.............: ConsoleRunner.java
 * Funcao...........: Utilitario de console para simulacao de flooding. Executa uma simulacao e imprime eventos e snapshot da primeira chegada ao destino.
 *************************************************************** */
@@ -100,5 +100,13 @@ public final class ConsoleRunner {
         }
         System.out.println("Total de pacotes gerados: " + result.getPacketsGenerated()
                 + "  |  tempo virtual final: " + result.getVirtualTime() + " ms");
+
+        // V4: imprimir duplicatas descartadas
+        if (version == 4) {
+            ForwardingStrategy strat = sim.getStrategy();
+            if (strat instanceof model.Strategy4Custom) {
+                System.out.println("Duplicatas descartadas: " + ((model.Strategy4Custom) strat).getDuplicatasDescartadas());
+            }
+        }
     }
 }
