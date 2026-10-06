@@ -61,8 +61,9 @@ public final class BatchConsole {
         System.out.println("Versao,Validas,Abortadas,Inalcancaveis,Media,DesvioPadrao");
 
         for (int version = 1; version <= 4; version++) {
+            long windowMs = (version == 4) ? 1000 : 0;
             BatchResult result = BatchRunner.run(graph, version, sourceId,
-                    destinationId, ttl, count, baseSeed);
+                    destinationId, ttl, count, baseSeed, windowMs);
 
             int valid = result.getSamples().size();
             int aborted = result.getAborted();

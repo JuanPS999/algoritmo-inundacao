@@ -20,26 +20,29 @@ import model.Strategy2ExceptIncoming;
 import model.Strategy3Ttl;
 import model.Strategy4Custom;
 import model.Simulator;
+import controller.StrategyFactory;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
  * Utilitario de console para simulacao de flooding.
- * Uso: java -cp build util.ConsoleRunner <versao> <origem> <destino> <ttl> <semente> [backbone]
+ * Uso: java -cp build util.ConsoleRunner <versao> <origem> <destino> <ttl> <semente> [backbone] [janela=<ms>]
  * Imprime um evento por linha e o snapshot da primeira chegada ao destino.
+ * O argumento janela=<ms> e opcional, pode aparecer em qualquer posicao apos o 5o argumento.
+ * So e usado na versao 4; padrao = 1000 ms.
  */
 public final class ConsoleRunner {
 
     private ConsoleRunner() {
     }
 
-    private static ForwardingStrategy strategyFor(int version) {
+    private static ForwardingStrategy strategyFor(int version, long janelaMs) {
         switch (version) {
             case 1: return new Strategy1AllInterfaces();
             case 2: return new Strategy2ExceptIncoming();
             case 3: return new Strategy3Ttl();
-            case 4: return new Strategy4Custom();
+            case 4: return new Strategy4Custom(janelaMs);
             default:
                 throw new IllegalArgumentException("Versao invalida (1..4): " + version);
         }
@@ -51,7 +54,7 @@ public final class ConsoleRunner {
 
     public static void main(String[] args) throws Exception {
         if (args.length < 5) {
-            System.err.println("Uso: ConsoleRunner <versao> <origem> <destino> <ttl> <semente> [backbone]");
+            System.err.println("Uso: ConsoleRunner <versao> <origem> <destino> <ttl> <semente> [backbone] [janela=<ms>]");
             System.exit(2);
         }
         final int version = Integer.parseInt(args[0]);
@@ -59,12 +62,30 @@ public final class ConsoleRunner {
         final int destination = Integer.parseInt(args[2]);
         final int ttl = Integer.parseInt(args[3]);
         final long seed = Long.parseLong(args[4]);
-        Path file = args.length > 5 ? Paths.get(args[5]) : Paths.get("backbone.txt");
+
+        // Parse optional arguments: backbone file and janela=<ms>
+        Path file = Paths.get("backbone.txt");
+        long janelaMs = 1000; // default for V4
+
+        for (int i = 5; i < args.length; i++) {
+            String arg = args[i];
+            if (arg.startsWith("janela=")) {
+                try {
+                    janelaMs = Long.parseLong(arg.substring(7));
+                } catch (NumberFormatException e) {
+                    System.err.println("Valor invalido para janela: " + arg);
+                    System.exit(2);
+                }
+            } else {
+                file = Paths.get(arg);
+            }
+        }
 
         Graph graph = BackboneLoader.load(file);
         final boolean showTtl = version >= 3;
 
-        Simulator sim = new Simulator(graph, strategyFor(version),
+        ForwardingStrategy strategy = strategyFor(version, janelaMs);
+        Simulator sim = new Simulator(graph, strategy,
                 new LatencyProvider(seed), source, destination, ttl);
 
         sim.setListener(new Simulator.Listener() {

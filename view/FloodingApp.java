@@ -20,6 +20,7 @@ import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import model.Graph;
 import util.BackboneLoader;
@@ -28,63 +29,107 @@ import view.ResultsTable;
 
 public class FloodingApp extends Application {
 
-  /* ***************************************************************
-  * Metodo: main
-  * Funcao: ponto de entrada alternativo; lanca a aplicacao JavaFX.
-  * Parametros: args = argumentos da linha de comando
-  * Retorno: void
-  *************************************************************** */
-  public static void main(String[] args) {
-    launch(args);
-  }//fim do metodo main
+    /* ***************************************************************
+    * Metodo: main
+    * Funcao: ponto de entrada alternativo; lanca a aplicacao JavaFX.
+    * Parametros: args = argumentos da linha de comando
+    * Retorno: void
+    *************************************************************** */
+    public static void main(String[] args) {
+        launch(args);
+    }//fim do metodo main
 
-  /* ***************************************************************
-  * Metodo: start
-  * Funcao: carrega o grafo e monta a janela principal.
-  * Parametros: stage = janela principal fornecida pelo JavaFX
-  * Retorno: void
-  *************************************************************** */
-  @Override
-  public void start(Stage stage) {
-    Graph graph;
-    try {
-      graph = BackboneLoader.load(Paths.get("backbone.txt"));
-    }//fim do try
-    catch (Exception exception) {
-      Alert alert = new Alert(AlertType.ERROR);
-      alert.setTitle("Erro");
-      alert.setHeaderText("Falha ao carregar o backbone.txt");
-      alert.setContentText(String.valueOf(exception.getMessage()));
-      alert.showAndWait();
-      Platform.exit();
-      return;
-    }//fim do catch
-    GraphPane graphPane = new GraphPane(graph);
-    ControlPanel controlPanel = new ControlPanel(graph);
-    ResultsTable resultsTable = new ResultsTable();
-    SimulationController controller = new SimulationController(controlPanel, graphPane, resultsTable);
-    BorderPane root = new BorderPane();
+    /* ***************************************************************
+    * Metodo: start
+    * Funcao: carrega o grafo e monta a janela principal.
+    * Parametros: stage = janela principal fornecida pelo JavaFX
+    * Retorno: void
+    *************************************************************** */
+    @Override
+    public void start(Stage stage) {
+        Graph graph;
+        try {
+            graph = BackboneLoader.load(Paths.get("backbone.txt"));
+        }//fim do try
+        catch (Exception exception) {
+            Alert alert = new Alert(AlertType.ERROR);
+            alert.setTitle("Erro");
+            alert.setHeaderText("Falha ao carregar o backbone.txt");
+            alert.setContentText(String.valueOf(exception.getMessage()));
+            alert.showAndWait();
+            Platform.exit();
+            return;
+        }//fim do catch
 
-    MenuBar menuBar = new MenuBar();
-    Menu fileMenu = new Menu("Arquivo");
-    MenuItem exitItem = new MenuItem("Sair");
-    exitItem.setOnAction(e -> Platform.exit());
-    fileMenu.getItems().add(exitItem);
+        GraphPane graphPane = new GraphPane(graph);
+        ControlPanel controlPanel = new ControlPanel(graph);
+        ResultsTable resultsTable = new ResultsTable();
+        EventLogPane eventLogPane = new EventLogPane();
 
-    Menu helpMenu = new Menu("Ajuda");
-    MenuItem aboutItem = new MenuItem("Sobre");
-    aboutItem.setOnAction(e -> AboutDialog.show());
-    helpMenu.getItems().add(aboutItem);
+        SimulationController controller = new SimulationController(controlPanel, graphPane, resultsTable);
 
-    menuBar.getMenus().addAll(fileMenu, helpMenu);
+        // Liga o log de eventos
+        controller.setLogConsumer(lines -> {
+            eventLogPane.addLines(lines);
+            eventLogPane.setDroppedCount(controller.getDroppedLogLines());
+        });
 
-    root.setTop(menuBar);
-    root.setCenter(graphPane);
-    root.setRight(controlPanel);
-    root.setBottom(resultsTable.getNode());
-    stage.setTitle("Roteamento por Inundacao");
-    stage.setScene(new Scene(root, 1100.0, 650.0));
-    stage.show();
-  }//fim do metodo start
+        // Liga botao Sortear semente
+        controlPanel.setOnRandomSeed(() -> {
+            long newSeed = new java.util.Random().nextLong();
+            controlPanel.getSeedField().setText(String.valueOf(newSeed));
+            controller.setSeed(newSeed);
+            controlPanel.updateReplayCommand();
+        });
+
+        // Liga botao passo a passo
+        controlPanel.setOnStep(() -> controller.step());
+
+        BorderPane root = new BorderPane();
+
+        MenuBar menuBar = new MenuBar();
+        Menu fileMenu = new Menu("Arquivo");
+        MenuItem reloadItem = new MenuItem("Recarregar backbone");
+        reloadItem.setOnAction(e -> {
+            try {
+                Graph newGraph = BackboneLoader.load(Paths.get("backbone.txt"));
+                graphPane.setGraph(newGraph);
+                controlPanel.updateForNewGraph(newGraph);
+                resultsTable.clear();
+                eventLogPane.clear();
+                controller.reset();
+                controlPanel.setStatus("Backbone recarregado.");
+            } catch (Exception ex) {
+                Alert alert = new Alert(AlertType.ERROR);
+                alert.setTitle("Erro");
+                alert.setHeaderText("Falha ao recarregar backbone");
+                alert.setContentText(ex.getMessage());
+                alert.showAndWait();
+            }
+        });
+        MenuItem exitItem = new MenuItem("Sair");
+        exitItem.setOnAction(e -> Platform.exit());
+        fileMenu.getItems().addAll(reloadItem, exitItem);
+
+        Menu helpMenu = new Menu("Ajuda");
+        MenuItem aboutItem = new MenuItem("Sobre");
+        aboutItem.setOnAction(e -> AboutDialog.show());
+        helpMenu.getItems().add(aboutItem);
+
+        menuBar.getMenus().addAll(fileMenu, helpMenu);
+
+        // Layout: grafo no centro, controis a direita, log embaixo, tabela mais embaixo
+        VBox bottomBox = new VBox(4.0);
+        bottomBox.getChildren().addAll(eventLogPane, resultsTable.getNode());
+
+        root.setTop(menuBar);
+        root.setCenter(graphPane);
+        root.setRight(controlPanel);
+        root.setBottom(bottomBox);
+
+        stage.setTitle("Roteamento por Inundacao");
+        stage.setScene(new Scene(root, 1100.0, 800.0));
+        stage.show();
+    }//fim do metodo start
 
 }//fim da classe FloodingApp

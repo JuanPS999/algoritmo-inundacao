@@ -44,14 +44,17 @@ public class Simulator {
         final long departureTime;
         final long seq; // desempate FIFO
         final int nodeId;
+        final int fromNode; // no que enviou esta copia
         final Packet packet;
         final Link link; // link em que o pacote esta em transito
 
-        Arrival(long time, long departureTime, long seq, int nodeId, Packet packet, Link link) {
+        Arrival(long time, long departureTime, long seq, int nodeId, int fromNode,
+                Packet packet, Link link) {
             this.time = time;
             this.departureTime = departureTime;
             this.seq = seq;
             this.nodeId = nodeId;
+            this.fromNode = fromNode;
             this.packet = packet;
             this.link = link;
         }
@@ -69,12 +72,14 @@ public class Simulator {
         public final Link link;
         public final long departureTime;
         public final long arrivalTime;
+        public final int fromNode; // no que enviou esta copia
 
-        InFlight(Packet p, Link link, long dep, long arr) {
+        InFlight(Packet p, Link link, long dep, long arr, int fromNode) {
             this.packet = p;
             this.link = link;
             this.departureTime = dep;
             this.arrivalTime = arr;
+            this.fromNode = fromNode;
         }
 
         /** Fracao [0,1] do percurso no instante t. */
@@ -93,6 +98,9 @@ public class Simulator {
         /** Pacote chegou ao no destino do link (antes de qualquer processamento). */
         void onArrive(long time, int nodeId, Link link, Packet packet, long counter);
     }
+
+    /** Novo listener com suporte a descartes e primeira chegada. */
+    private SimulationListener simListener;
 
     private final Graph graph;
     private final ForwardingStrategy strategy;
@@ -129,6 +137,15 @@ public class Simulator {
         this.listener = listener;
     }
 
+    /**
+     * Define o listener com suporte a eventos de descarte e primeira chegada.
+     * Pode ser null (nenhum custo).
+     * @param simListener listener ou null
+     */
+    public void setListener(SimulationListener simListener) {
+        this.simListener = simListener;
+    }
+
     public ForwardingStrategy getStrategy() {
         return strategy;
     }
@@ -151,6 +168,17 @@ public class Simulator {
 
     public long getSnapshotTime() {
         return snapshotTime;
+    }
+
+    /**
+     * Retorna o tempo do proximo evento na fila, ou Long.MAX_VALUE se vazia.
+     * @return tempo virtual do proximo evento ou Long.MAX_VALUE
+     */
+    public long peekNextTime() {
+        if (queue.isEmpty()) {
+            return Long.MAX_VALUE;
+        }
+        return queue.peek().time;
     }
 
     /** Injetor inicial: uma copia por interface do transmissor. */
@@ -185,9 +213,12 @@ public class Simulator {
         // a copia que viaja carrega a interface de chegada e o messageId do original
         Packet travelling = new Packet(nextPacketId++, packet.getMessageId(), packet.getTtl(), link);
         travelling.setArrivalTime(arrival);
-        queue.add(new Arrival(arrival, time, nextSeq++, to, travelling, link));
+        queue.add(new Arrival(arrival, time, nextSeq++, to, fromNode, travelling, link));
         if (listener != null) {
             listener.onTransmit(time, fromNode, link, packet, packetsGenerated);
+        }
+        if (simListener != null) {
+            simListener.onSend(time, fromNode, link, packet, packetsGenerated);
         }
     }
 
@@ -219,29 +250,44 @@ public class Simulator {
         virtualTime = Math.max(virtualTime, ev.time);
         // 1) link desabilitado enquanto o pacote estava nele: descarte
         if (!ev.link.isEnabled()) {
+            if (simListener != null) {
+                simListener.onDrop(ev.time, ev.nodeId, ev.link, ev.packet,
+                        packetsGenerated, SimulationListener.DROP_LINK);
+            }
             return;
         }
         if (listener != null) {
             listener.onArrive(ev.time, ev.nodeId, ev.link, ev.packet, packetsGenerated);
+        }
+        if (simListener != null) {
+            simListener.onArrive(ev.time, ev.nodeId, ev.link, ev.packet, packetsGenerated);
         }
         // 2) snapshot na primeira chegada ao receptor
         if (ev.nodeId == destinationId && !snapshotTaken) {
             snapshotTaken = true;
             snapshotCounter = packetsGenerated;
             snapshotTime = ev.time;
+            if (simListener != null) {
+                simListener.onFirstArrival(ev.time, destinationId, snapshotCounter, ev.packet);
+            }
         }
         // 3) e 4) a estrategia decide; o receptor TAMBEM reencaminha
         List<Link> out = strategy.forward(graph, ev.nodeId, ev.packet);
+        String dropReason = strategy.getLastDropReason();
+        if (dropReason != null && simListener != null) {
+            simListener.onDrop(ev.time, ev.nodeId, ev.link, ev.packet,
+                    packetsGenerated, dropReason);
+        }
         for (Link link : out) {
             transmit(ev.time, ev.nodeId, link, ev.packet);
-        }
+        }//fim do for
     }
 
     /** Pacotes atualmente em transito (para desenho da GUI). */
     public List<InFlight> inFlight() {
         List<InFlight> list = new ArrayList<InFlight>();
         for (Arrival ev : queue) {
-            list.add(new InFlight(ev.packet, ev.link, ev.departureTime, ev.time));
+            list.add(new InFlight(ev.packet, ev.link, ev.departureTime, ev.time, ev.fromNode));
         }
         return list;
     }

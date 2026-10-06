@@ -2,7 +2,7 @@
 * Autor............: Juan Prado Da Silva
 * Matricula........: 202310291
 * Inicio...........: 01/10/2026
-* Ultima alteracao.: 02/10/2026
+* Ultima alteracao.: 06/10/2026
 * Nome.............: ForwardingStrategy.java
 * Funcao...........: Interface de estrategia de reenvio de pacotes.
 *************************************************************** */
@@ -28,4 +28,16 @@ public interface ForwardingStrategy {
      * @return links por onde retransmitir; lista vazia = descartar
      */
     List<Link> forward(Graph graph, int nodeId, Packet packet);
+
+    /**
+     * Motivo do ultimo descarte feito por esta estrategia, ou null se
+     * o ultimo forward nao descartou o pacote.
+     * V3: "TTL" quando ttl <= 0.
+     * V4: "TTL" ou "DUPLICATA".
+     * V1/V2: sempre null.
+     * @return motivo do descarte ou null
+     */
+    default String getLastDropReason() {
+        return null;
+    }
 }

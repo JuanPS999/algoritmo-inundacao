@@ -30,6 +30,8 @@ public class Strategy4Custom implements ForwardingStrategy {
     private final Map<Integer, Map<Long, Long>> visto;
     // contador de duplicatas descartadas nesta execucao
     private long duplicatasDescartadas;
+    // motivo do ultimo descarte
+    private String lastDropReason = null;
 
     /* ***************************************************************
     * Metodo: Strategy4Custom
@@ -99,20 +101,23 @@ public class Strategy4Custom implements ForwardingStrategy {
         if (instanteVisto != null && (t - instanteVisto) < janelaMs) {
             // Duplicate within window - discard, DO NOT update visto
             duplicatasDescartadas++;
+            lastDropReason = SimulationListener.DROP_DUPLICATE;
             return new ArrayList<Link>();
         }
 
         // Not a duplicate (outside window or first observation): update visto
-        // and apply V3 logic. A duplicata NAO renova o registro, então só
+        // and apply V3 logic. A duplicata NAO renova o registro, entao so
         // atualizamos quando a copia nao e duplicata.
         nodeVisto.put(packet.getMessageId(), t);
 
         // V3 logic: decrement TTL
         packet.setTtl(packet.getTtl() - 1);
         if (packet.getTtl() <= 0) {
+            lastDropReason = SimulationListener.DROP_TTL;
             return new ArrayList<Link>(); // descarta por TTL expirado
         }
 
+        lastDropReason = null;
         List<Link> out = new ArrayList<Link>();
         for (Link link : graph.linksOf(nodeId)) {
             if (link.isEnabled() && link != packet.getArrivalLink()) {
@@ -120,5 +125,10 @@ public class Strategy4Custom implements ForwardingStrategy {
             }
         }
         return out;
+    }
+
+    @Override
+    public String getLastDropReason() {
+        return lastDropReason;
     }
 }

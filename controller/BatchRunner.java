@@ -26,11 +26,13 @@ public class BatchRunner {
     * Parametros: graph = grafo de rede; version = versao da estrategia
     *             (1 a 4); sourceId = no transmissor; destinationId =
     *             no receptor; ttl = TTL inicial; count = numero de
-    *             execucoes; baseSeed = semente base do LatencyProvider
+    *             execucoes; baseSeed = semente base do LatencyProvider;
+    *             windowMs = janela de deduplicacao para V4 (ignorado
+    *             nas outras versoes)
     * Retorno: BatchResult com amostras, abortadas e inalcançaveis
     *************************************************************** */
     public static BatchResult run(Graph graph, int version, int sourceId,
-            int destinationId, int ttl, int count, long baseSeed) {
+            int destinationId, int ttl, int count, long baseSeed, long windowMs) {
         List<Long> samples = new ArrayList<Long>();
         int aborted = 0;
         int unreachable = 0;
@@ -38,7 +40,7 @@ public class BatchRunner {
         for (int i = 0; i < count; i++) {
             long seed = baseSeed + i;
             Simulator simulator = new Simulator(graph,
-                    StrategyFactory.create(version),
+                    StrategyFactory.create(version, windowMs),
                     new LatencyProvider(seed),
                     sourceId, destinationId, ttl);
             RunResult result = simulator.runUntilFirstArrival();
