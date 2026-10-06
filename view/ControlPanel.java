@@ -4,9 +4,8 @@
 * Inicio...........: 02/10/2026
 * Ultima alteracao.: 06/10/2026
 * Nome.............: ControlPanel
-* Funcao...........: Painel lateral com os controles da simulacao:
-*                    versao, transmissor, receptor, TTL, velocidade,
-*                    botoes, contador de pacotes e snapshot.
+* Funcao...........: Painel lateral com os controles da simulacao
+*                    organizados em secoes: Cenario, Execucao, Lote.
 *************************************************************** */
 package view;
 
@@ -18,6 +17,7 @@ import javafx.scene.control.Slider;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextField;
+import javafx.scene.control.Tooltip;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import model.Graph;
@@ -35,9 +35,9 @@ public class ControlPanel extends VBox {
     private final ComboBox<String> versionBox = new ComboBox<String>();
     private final ComboBox<String> sourceBox = new ComboBox<String>();
     private final ComboBox<String> destinationBox = new ComboBox<String>();
-    private final Spinner<Integer> ttlSpinner;
-    private final Spinner<Integer> batchCountSpinner;
-    private final Spinner<Integer> windowSpinner;
+    private final Spinner<Integer> ttlSpinner = new Spinner<Integer>();
+    private final Spinner<Integer> batchCountSpinner = new Spinner<Integer>();
+    private final Spinner<Integer> windowSpinner = new Spinner<Integer>();
     private final Slider speedSlider = new Slider(0.25, 10.0, 2.0);
     private final Label speedLabel = new Label();
     private final Button startButton = new Button("Iniciar");
@@ -56,10 +56,17 @@ public class ControlPanel extends VBox {
     private final TextField replayField = new TextField();
 
     private long currentSeed = System.nanoTime();
+    private boolean running = false;
+    private boolean paused = false;
+
+    // Labels de overlay no grafo (atualizados pelo controller)
+    private Label overlayPackets = null;
+    private Label overlayTime = null;
+    private Label overlaySnapshot = null;
 
     /* ***************************************************************
     * Metodo: ControlPanel
-    * Funcao: construtor; monta todos os controles do painel.
+    * Funcao: construtor; monta todos os controis em secoes.
     * Parametros: graph = grafo (rotulos dos nos e diametro para o TTL)
     * Retorno: nao se aplica
     *************************************************************** */
@@ -67,92 +74,219 @@ public class ControlPanel extends VBox {
         super(8.0);
         setPadding(new Insets(12.0));
         setPrefWidth(320.0);
+        getStyleClass().add("secao");
 
+        // Inicializa controles
+        initControls(graph);
+        buildLayout();
+        setupListeners();
+        resetDisplay();
+    }//fim do construtor ControlPanel
+
+    /* ***************************************************************
+    * Metodo: initControls
+    * Funcao: inicializa todos os controles com valores padrao.
+    * Parametros: graph = grafo
+    * Retorno: void
+    *************************************************************** */
+    private void initControls(Graph graph) {
         for (int i = 0; i < VERSION_NAMES.length; i++) {
             versionBox.getItems().add(VERSION_NAMES[i]);
-        }//fim do for
+        }
         versionBox.getSelectionModel().select(2);
+        versionBox.setMaxWidth(Double.MAX_VALUE);
+        versionBox.setTooltip(new Tooltip("Versao do algoritmo de flooding"));
 
         for (int id = 1; id <= graph.getNodeCount(); id++) {
             String label = graph.getNode(id).getLabel();
             sourceBox.getItems().add(label);
             destinationBox.getItems().add(label);
-        }//fim do for
+        }
         sourceBox.getSelectionModel().select(0);
         destinationBox.getSelectionModel().select(
                 Math.min(3, graph.getNodeCount() - 1));
+        sourceBox.setMaxWidth(Double.MAX_VALUE);
+        sourceBox.setTooltip(new Tooltip("No transmissor"));
+        destinationBox.setMaxWidth(Double.MAX_VALUE);
+        destinationBox.setTooltip(new Tooltip("No receptor"));
 
-        ttlSpinner = new Spinner<Integer>(1, 99, Math.max(1, graph.diameter()));
+        ttlSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(
+                1, 99, Math.max(1, graph.diameter())));
         ttlSpinner.setEditable(true);
+        ttlSpinner.setMaxWidth(Double.MAX_VALUE);
+        ttlSpinner.setTooltip(new Tooltip("TTL inicial (versoes 3 e 4)"));
 
-        batchCountSpinner = new Spinner<Integer>(1, 1000, 30);
+        batchCountSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(
+                1, 1000, 30));
         batchCountSpinner.setEditable(true);
         batchCountSpinner.setMaxWidth(Double.MAX_VALUE);
+        batchCountSpinner.setTooltip(new Tooltip("Numero de execucoes do lote"));
 
-        windowSpinner = new Spinner<Integer>(0, 10000, 1000);
+        windowSpinner.setValueFactory(new SpinnerValueFactory.IntegerSpinnerValueFactory(
+                0, 10000, 1000));
         windowSpinner.setEditable(true);
         windowSpinner.setMaxWidth(Double.MAX_VALUE);
-        windowSpinner.setDisable(true); // habilitado apenas na V4
+        windowSpinner.setDisable(true);
+        windowSpinner.setTooltip(new Tooltip("Janela de deduplicacao V4 (ms)"));
 
-        versionBox.setMaxWidth(Double.MAX_VALUE);
-        sourceBox.setMaxWidth(Double.MAX_VALUE);
-        destinationBox.setMaxWidth(Double.MAX_VALUE);
-        ttlSpinner.setMaxWidth(Double.MAX_VALUE);
         speedSlider.setMaxWidth(Double.MAX_VALUE);
-        batchCountSpinner.setMaxWidth(Double.MAX_VALUE);
-        windowSpinner.setMaxWidth(Double.MAX_VALUE);
+        speedSlider.setTooltip(new Tooltip("Velocidade da animacao (0.25x a 10x)"));
 
         seedField.setMaxWidth(Double.MAX_VALUE);
         seedField.setText(String.valueOf(currentSeed));
-        seedField.textProperty().addListener((obs, oldVal, newVal) -> {
-            validateSeedField(newVal);
-        });
+        seedField.setTooltip(new Tooltip("Semente para geracao de latencias"));
 
         replayField.setMaxWidth(Double.MAX_VALUE);
         replayField.setEditable(false);
+        replayField.setTooltip(new Tooltip("Comando para reproduzir no console"));
 
-        speedSlider.valueProperty().addListener(
-                (observable, oldValue, newValue) -> {
-                    updateSpeedLabel();
-                });//fim do listener de velocidade
-        updateSpeedLabel();
-
-        // listener para mudar estado do windowSpinner conforme versao
-        versionBox.valueProperty().addListener((obs, oldVal, newVal) -> {
-            updateWindowSpinnerState();
-            updateReplayCommand();
-        });
+        startButton.getStyleClass().add("primario");
+        startButton.setMaxWidth(Double.MAX_VALUE);
+        startButton.setTooltip(new Tooltip("Inicia nova simulacao"));
 
         pauseButton.setDisable(true);
-        batchButton.setDisable(false);
+        pauseButton.setMaxWidth(Double.MAX_VALUE);
+        pauseButton.setTooltip(new Tooltip("Pausa ou continua a simulacao"));
+
+        resetButton.setMaxWidth(Double.MAX_VALUE);
+        resetButton.setTooltip(new Tooltip("Reseta a simulacao"));
+
         stepButton.setDisable(true);
+        stepButton.setMaxWidth(Double.MAX_VALUE);
+        stepButton.setTooltip(new Tooltip("Avanca um evento (passo a passo)"));
+
+        batchButton.setMaxWidth(Double.MAX_VALUE);
+        batchButton.setTooltip(new Tooltip("Executa lote de simulacoes"));
+
+        randomSeedButton.setMaxWidth(Double.MAX_VALUE);
+        randomSeedButton.setTooltip(new Tooltip("Gera nova semente aleatoria"));
+
+        speedLabel.setStyle("-fx-font-weight: bold;");
+        updateSpeedLabel();
+
+        snapshotLabel.setWrapText(true);
+        snapshotLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold;");
+        statusLabel.setWrapText(true);
+        statusLabel.setStyle("-fx-text-fill: #8b98a9; -fx-font-size: 12px;");
+
+        nextEventLabel.setStyle("-fx-text-fill: #8b98a9; -fx-font-size: 12px;");
+    }//fim do metodo initControls
+
+    /* ***************************************************************
+    * Metodo: buildLayout
+    * Funcao: monta o layout em secoes com espacamento consistente.
+    * Parametros: nenhum
+    * Retorno: void
+    *************************************************************** */
+    private void buildLayout() {
+        // Sessao Cenario
+        VBox secaoCenario = new VBox(6.0);
+        secaoCenario.getChildren().addAll(
+                sectionTitle("Cenario"),
+                labeledControl("Versao:", versionBox),
+                labeledControl("Origem:", sourceBox),
+                labeledControl("Destino:", destinationBox),
+                labeledControl("TTL:", ttlSpinner),
+                labeledControl("Janela V4:", windowSpinner)
+        );
+
+        // Sessao Execucao
         HBox buttons = new HBox(6.0, startButton, pauseButton, resetButton, stepButton);
-        HBox batchBox = new HBox(6.0, batchButton, batchProgressLabel);
         HBox seedBox = new HBox(6.0, new Label("Semente:"), seedField, randomSeedButton);
         HBox windowBox = new HBox(6.0, new Label("Janela V4 (ms):"), windowSpinner);
         HBox nextEventBox = new HBox(6.0, new Label("Proximo evento:"), nextEventLabel);
         HBox replayBox = new HBox(6.0, new Label("Reproducao:"), replayField);
 
-        snapshotLabel.setWrapText(true);
-        snapshotLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold;");
-        statusLabel.setWrapText(true);
-        resetDisplay();
-
-        getChildren().addAll(
-                titleLabel("Versao do algoritmo"), versionBox,
-                titleLabel("Transmissor"), sourceBox,
-                titleLabel("Receptor"), destinationBox,
-                titleLabel("TTL inicial (versoes 3 e 4)"), ttlSpinner,
-                titleLabel("Semente"), seedBox,
-                windowBox,
+        VBox secaoExecucao = new VBox(6.0);
+        secaoExecucao.getChildren().addAll(
+                sectionTitle("Execucao"),
                 speedLabel, speedSlider,
                 buttons,
-                titleLabel("Execucao em lote"), batchCountSpinner, batchBox,
+                seedBox,
+                windowBox,
                 nextEventBox,
-                titleLabel("Reproducao"), replayBox,
-                titleLabel("Medicao"), counterLabel, timeLabel, snapshotLabel,
-                statusLabel);
-    }//fim do construtor ControlPanel
+                replayBox
+        );
+
+        // Sessao Lote
+        HBox batchBox = new HBox(6.0, batchButton, batchProgressLabel);
+        VBox secaoLote = new VBox(6.0);
+        secaoLote.getChildren().addAll(
+                sectionTitle("Lote"),
+                labeledControl("N:", batchCountSpinner),
+                batchBox
+        );
+
+        // Sessao Medicao (contadores)
+        VBox secaoMedicao = new VBox(6.0);
+        secaoMedicao.getChildren().addAll(
+                sectionTitle("Medicao"),
+                counterLabel, timeLabel, snapshotLabel, statusLabel
+        );
+
+        getChildren().addAll(secaoCenario, secaoExecucao, secaoLote, secaoMedicao);
+    }//fim do metodo buildLayout
+
+    /* ***************************************************************
+    * Metodo: labeledControl
+    * Funcao: cria HBox com label e controle alinhados.
+    * Parametros: labelText = texto do rotulo; control = controle
+    * Retorno: HBox
+    *************************************************************** */
+    private HBox labeledControl(String labelText, javafx.scene.control.Control control) {
+        Label label = new Label(labelText);
+        label.setMinWidth(80.0);
+        label.setStyle("-fx-text-fill: #e6edf3; -fx-font-weight: bold;");
+        HBox box = new HBox(8.0, label, control);
+        box.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        HBox.setHgrow(control, javafx.scene.layout.Priority.ALWAYS);
+        return box;
+    }//fim do metodo labeledControl
+
+    /* ***************************************************************
+    * Metodo: sectionTitle
+    * Funcao: cria titulo de secao estilizado.
+    * Parametros: text = texto do titulo
+    * Retorno: Label
+    *************************************************************** */
+    private Label sectionTitle(String text) {
+        Label label = new Label(text);
+        label.setStyle("-fx-font-weight: bold; -fx-font-size: 13px; -fx-text-fill: #4c9aff;");
+        return label;
+    }//fim do metodo sectionTitle
+
+    /* ***************************************************************
+    * Metodo: setupListeners
+    * Funcao: configura listeners dos controles.
+    * Parametros: nenhum
+    * Retorno: void
+    *************************************************************** */
+    private void setupListeners() {
+        speedSlider.valueProperty().addListener(
+                (observable, oldValue, newValue) -> updateSpeedLabel());
+
+        versionBox.valueProperty().addListener((obs, oldVal, newVal) -> {
+            updateWindowSpinnerState();
+            updateReplayCommand();
+        });
+
+        seedField.textProperty().addListener((obs, oldVal, newVal) -> {
+            validateSeedField(newVal);
+        });
+    }//fim do metodo setupListeners
+
+    /* ***************************************************************
+    * Metodo: setOverlayLabels
+    * Funcao: define as labels de overlay no grafo para atualizacao.
+    * Parametros: packets = label de pacotes; time = label de tempo;
+    *             snapshot = label de snapshot
+    * Retorno: void
+    *************************************************************** */
+    public void setOverlayLabels(Label packets, Label time, Label snapshot) {
+        this.overlayPackets = packets;
+        this.overlayTime = time;
+        this.overlaySnapshot = snapshot;
+    }//fim do metodo setOverlayLabels
 
     /* ***************************************************************
     * Metodo: validateSeedField
@@ -167,7 +301,7 @@ public class ControlPanel extends VBox {
             currentSeed = seed;
             seedField.setStyle("");
         } catch (NumberFormatException e) {
-            seedField.setStyle("-fx-border-color: red; -fx-border-width: 2px;");
+            seedField.setStyle("-fx-border-color: #f85149; -fx-border-width: 2px;");
             seedField.setText(String.valueOf(currentSeed));
         }
     }//fim do metodo validateSeedField
@@ -258,12 +392,12 @@ public class ControlPanel extends VBox {
         sourceBox.valueProperty().addListener((observable, oldValue, newValue) -> {
             action.run();
             updateReplayCommand();
-        });//fim do listener do transmissor
+        });
         destinationBox.valueProperty().addListener(
                 (observable, oldValue, newValue) -> {
                     action.run();
                     updateReplayCommand();
-                });//fim do listener do receptor
+                });
     }//fim do metodo setOnEndpointsChange
 
     /* ***************************************************************
@@ -306,10 +440,9 @@ public class ControlPanel extends VBox {
         try {
             int typed = Integer.parseInt(ttlSpinner.getEditor().getText().trim());
             return Math.max(1, typed);
-        }//fim do try
-        catch (NumberFormatException exception) {
+        } catch (NumberFormatException exception) {
             return ttlSpinner.getValue().intValue();
-        }//fim do catch
+        }
     }//fim do metodo getTtl
 
     /* ***************************************************************
@@ -322,10 +455,9 @@ public class ControlPanel extends VBox {
         try {
             int typed = Integer.parseInt(batchCountSpinner.getEditor().getText().trim());
             return Math.max(1, typed);
-        }//fim do try
-        catch (NumberFormatException exception) {
+        } catch (NumberFormatException exception) {
             return batchCountSpinner.getValue().intValue();
-        }//fim do catch
+        }
     }//fim do metodo getBatchCount
 
     /* ***************************************************************
@@ -338,10 +470,9 @@ public class ControlPanel extends VBox {
         try {
             int typed = Integer.parseInt(windowSpinner.getEditor().getText().trim());
             return Math.max(0, typed);
-        }//fim do try
-        catch (NumberFormatException exception) {
+        } catch (NumberFormatException exception) {
             return windowSpinner.getValue().longValue();
-        }//fim do catch
+        }
     }//fim do metodo getWindowMs
 
     /* ***************************************************************
@@ -402,6 +533,9 @@ public class ControlPanel extends VBox {
     *************************************************************** */
     public void setCounter(long packets) {
         counterLabel.setText("Pacotes gerados: " + packets);
+        if (overlayPackets != null) {
+            overlayPackets.setText("Pacotes: " + packets);
+        }
     }//fim do metodo setCounter
 
     /* ***************************************************************
@@ -412,6 +546,9 @@ public class ControlPanel extends VBox {
     *************************************************************** */
     public void setVirtualTime(long millis) {
         timeLabel.setText("Tempo virtual: " + millis + " ms");
+        if (overlayTime != null) {
+            overlayTime.setText("Tempo: " + millis + " ms");
+        }
     }//fim do metodo setVirtualTime
 
     /* ***************************************************************
@@ -423,6 +560,9 @@ public class ControlPanel extends VBox {
     public void showSnapshot(long packets, long millis) {
         snapshotLabel.setText("Destino atingido: " + packets
                 + " pacotes gerados (t = " + millis + " ms)");
+        if (overlaySnapshot != null) {
+            overlaySnapshot.setText("Snapshot: " + packets + " @ " + millis + "ms");
+        }
     }//fim do metodo showSnapshot
 
     /* ***************************************************************
@@ -446,6 +586,9 @@ public class ControlPanel extends VBox {
         setVirtualTime(0);
         snapshotLabel.setText(NO_SNAPSHOT);
         nextEventLabel.setText("Fila vazia");
+        if (overlaySnapshot != null) {
+            overlaySnapshot.setText("Snapshot: --");
+        }
     }//fim do metodo resetDisplay
 
     /* ***************************************************************
@@ -455,6 +598,7 @@ public class ControlPanel extends VBox {
     * Retorno: void
     *************************************************************** */
     public void setRunning(boolean running) {
+        this.running = running;
         versionBox.setDisable(running);
         sourceBox.setDisable(running);
         destinationBox.setDisable(running);
@@ -463,13 +607,11 @@ public class ControlPanel extends VBox {
         windowSpinner.setDisable(running || getVersion() != 4);
         startButton.setDisable(running);
         pauseButton.setDisable(!running);
-        stepButton.setDisable(!running);
+        stepButton.setDisable(!running || !paused);
         batchButton.setDisable(running);
         seedField.setDisable(running);
         randomSeedButton.setDisable(running);
     }//fim do metodo setRunning
-
-    private boolean paused = false;
 
     /* ***************************************************************
     * Metodo: setPaused
@@ -482,8 +624,6 @@ public class ControlPanel extends VBox {
         pauseButton.setText(paused ? "Continuar" : "Pausar");
         stepButton.setDisable(!running || !paused);
     }//fim do metodo setPaused
-
-    private boolean running = false;
 
     /* ***************************************************************
     * Metodo: setNextEventTime
@@ -541,17 +681,5 @@ public class ControlPanel extends VBox {
         speedLabel.setText(String.format("Velocidade: %.2fx",
                 speedSlider.getValue()));
     }//fim do metodo updateSpeedLabel
-
-    /* ***************************************************************
-    * Metodo: titleLabel
-    * Funcao: cria um rotulo de titulo em negrito.
-    * Parametros: text = texto do rotulo
-    * Retorno: Label formatado
-    *************************************************************** */
-    private Label titleLabel(String text) {
-        Label label = new Label(text);
-        label.setStyle("-fx-font-weight: bold;");
-        return label;
-    }//fim do metodo titleLabel
 
 }//fim da classe ControlPanel

@@ -63,6 +63,8 @@ public class GraphPane extends Pane {
     public GraphPane(Graph graph) {
         this.graph = graph;
         setPrefSize(800.0, 600.0);
+        setBackground(new javafx.scene.layout.Background(
+                new javafx.scene.layout.BackgroundFill(Theme.BG0, null, null)));
         packetsLayer.setMouseTransparent(true);
         getChildren().addAll(linksLayer, nodesLayer, packetsLayer);
         widthProperty().addListener((observable, oldValue, newValue) -> {
@@ -142,6 +144,7 @@ public class GraphPane extends Pane {
                 Text ttlText = new Text(x + 8.0, y - 8.0,
                         "ttl=" + flight.packet.getTtl());
                 ttlText.setFont(Font.font(11));
+                ttlText.setFill(Theme.TEXTO);
                 packetsLayer.getChildren().add(ttlText);
             }//fim do if
         }//fim do for
@@ -196,7 +199,7 @@ public class GraphPane extends Pane {
     /* ***************************************************************
     * Metodo: drawLinks
     * Funcao: desenha os links; clicar em um link alterna entre
-    *         habilitado (cinza) e desabilitado (vermelho tracejado).
+    *         habilitado (Theme.LINK) e desabilitado (Theme.ERRO tracejado).
     * Parametros: nenhum
     * Retorno: void
     *************************************************************** */
@@ -210,10 +213,10 @@ public class GraphPane extends Pane {
             Line line = new Line(x1, y1, x2, y2);
             line.setStrokeWidth(2.0);
             if (link.isEnabled()) {
-                line.setStroke(Color.DIMGRAY);
+                line.setStroke(Theme.LINK);
             }//fim do if
             else {
-                line.setStroke(Color.RED);
+                line.setStroke(Theme.ERRO);
                 line.getStrokeDashArray().addAll(8.0, 6.0);
             }//fim do else
             Line hitArea = new Line(x1, y1, x2, y2);
@@ -230,7 +233,8 @@ public class GraphPane extends Pane {
 
     /* ***************************************************************
     * Metodo: addWeightLabel
-    * Funcao: escreve o peso do link sobre um fundo branco.
+    * Funcao: escreve o peso do link sobre um fundo Theme.BG2.
+    *         Texto em Theme.MUDO.
     * Parametros: weight = peso; centerX, centerY = ponto medio do link
     * Retorno: void
     *************************************************************** */
@@ -238,14 +242,15 @@ public class GraphPane extends Pane {
         Text text = new Text(String.valueOf(weight));
         text.setFont(Font.font(12));
         text.setTextOrigin(VPos.CENTER);
+        text.setFill(Theme.MUDO);
         double width = text.getLayoutBounds().getWidth();
         double height = text.getLayoutBounds().getHeight();
         text.setX(centerX - width / 2.0);
         text.setY(centerY);
         Rectangle background = new Rectangle(centerX - width / 2.0 - 3.0,
                 centerY - height / 2.0, width + 6.0, height);
-        background.setFill(Color.WHITE);
-        background.setOpacity(0.85);
+        background.setFill(Theme.BG2);
+        background.setOpacity(0.9);
         background.setMouseTransparent(true);
         text.setMouseTransparent(true);
         linksLayer.getChildren().addAll(background, text);
@@ -253,8 +258,9 @@ public class GraphPane extends Pane {
 
     /* ***************************************************************
     * Metodo: drawNodes
-    * Funcao: desenha os nos com rotulo; transmissor verde, receptor azul
-    *         (contorno grosso quando o destino foi atingido).
+    * Funcao: desenha os nos com rotulo; transmissor Theme.TRANSMISSOR,
+    *         receptor Theme.RECEPTOR, demais Theme.BG2 com borda Theme.BORDA.
+    *         Destino atingido: contorno Theme.ACENTO grosso.
     * Parametros: nenhum
     * Retorno: void
     *************************************************************** */
@@ -266,16 +272,17 @@ public class GraphPane extends Pane {
             Circle circle = new Circle(nodeX[i], nodeY[i], NODE_RADIUS);
             circle.setFill(fillOf(id));
             if (destinationReached && id == destinationId) {
-                circle.setStroke(Color.ORANGERED);
-                circle.setStrokeWidth(5.0);
+                circle.setStroke(Theme.ACENTO);
+                circle.setStrokeWidth(4.0);
             }//fim do if
             else {
-                circle.setStroke(Color.BLACK);
+                circle.setStroke(Theme.BORDA);
                 circle.setStrokeWidth(2.0);
             }//fim do else
             Text label = new Text(nodes.get(i).getLabel());
             label.setFont(Font.font(16));
             label.setTextOrigin(VPos.CENTER);
+            label.setFill(Theme.TEXTO);
             label.setX(nodeX[i] - label.getLayoutBounds().getWidth() / 2.0);
             label.setY(nodeY[i]);
             circle.setMouseTransparent(true);
@@ -288,16 +295,16 @@ public class GraphPane extends Pane {
     * Metodo: fillOf
     * Funcao: escolhe a cor de preenchimento de um no.
     * Parametros: id = id do no
-    * Retorno: Color verde (transmissor), azul (receptor) ou branco
+    * Retorno: Color transmissor, receptor ou BG2
     *************************************************************** */
     private Color fillOf(int id) {
         if (id == sourceId) {
-            return Color.LIGHTGREEN;
+            return Theme.TRANSMISSOR;
         }//fim do if
         if (id == destinationId) {
-            return Color.LIGHTSKYBLUE;
+            return Theme.RECEPTOR;
         }//fim do if
-        return Color.WHITE;
+        return Theme.BG2;
     }//fim do metodo fillOf
 
 }//fim da classe GraphPane

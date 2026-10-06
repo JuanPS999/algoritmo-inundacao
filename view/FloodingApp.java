@@ -13,15 +13,19 @@ import controller.SimulationController;
 import java.nio.file.Paths;
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
+import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
-import javafx.scene.control.SplitPane;
+import javafx.scene.control.Tab;
+import javafx.scene.control.TabPane;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import model.Graph;
@@ -91,21 +95,10 @@ public class FloodingApp extends Application {
         // Liga botao passo a passo
         controlPanel.setOnStep(() -> controller.step());
 
-        // Liga redesenho do grafico apos mudancas na tabela
-        // O ResultsTable nao tem listener, entao o ComparisonChart
-        // sera notificado via wrapper nos metodos addResult/addFailure/clear
-        // Por simplicidade, vamos fazer o ComparisonChart observar
-        // chamando redraw() apos cada operacao na tabela.
-        // O ResultsTable ja tem refresh() nos metodos, entao podemos
-        // estender ou usar um callback. Vamos usar uma abordagem simples:
-        // o ComparisonChart redesenha quando a tabela e atualizada.
-        // Para isso, vamos adicionar um listener no ResultsTable ou
-        // chamar redraw() do controller apos cada addResult/addFailure.
-        // Aqui vamos apenas criar o grafico; o controller nao conhece o grafico.
-        // Vamos fazer o ResultsTable notificar o ComparisonChart via callback.
-
         BorderPane root = new BorderPane();
+        root.setStyle("-fx-background-color: #0d1117;");
 
+        // MenuBar no topo
         MenuBar menuBar = new MenuBar();
         Menu fileMenu = new Menu("Arquivo");
         MenuItem reloadItem = new MenuItem("Recarregar backbone");
@@ -137,25 +130,65 @@ public class FloodingApp extends Application {
         helpMenu.getItems().add(aboutItem);
 
         menuBar.getMenus().addAll(fileMenu, helpMenu);
-
-        // Area inferior: log em cima, tabela + grafico lado a lado embaixo
-        HBox tableAndChart = new HBox(8.0);
-        tableAndChart.getChildren().addAll(resultsTable.getNode(), comparisonChart);
-        HBox.setHgrow(resultsTable.getNode(), javafx.scene.layout.Priority.ALWAYS);
-        HBox.setHgrow(comparisonChart, javafx.scene.layout.Priority.ALWAYS);
-
-        VBox bottomBox = new VBox(4.0);
-        bottomBox.getChildren().addAll(eventLogPane, tableAndChart);
-        VBox.setVgrow(eventLogPane, javafx.scene.layout.Priority.ALWAYS);
-        VBox.setVgrow(tableAndChart, javafx.scene.layout.Priority.ALWAYS);
-
         root.setTop(menuBar);
-        root.setCenter(graphPane);
+
+        // Centro: GraphPane (elemento dominante) com contadores sobrepostos
+        StackPane centerPane = new StackPane();
+        centerPane.getChildren().add(graphPane);
+
+        // Contadores sobrepostos no canto superior esquerdo
+        VBox overlay = new VBox(4.0);
+        overlay.setPadding(new Insets(12.0));
+        overlay.setStyle("-fx-background-color: rgba(28, 36, 48, 0.9); " +
+                "-fx-border-color: #2b3544; -fx-border-radius: 8; " +
+                "-fx-background-radius: 8;");
+        overlay.setMaxWidth(220.0);
+        overlay.setMouseTransparent(true);
+
+        Label lblPackets = new Label("Pacotes: 0");
+        lblPackets.setStyle("-fx-text-fill: #e6edf3; -fx-font-size: 13px;");
+        Label lblTime = new Label("Tempo: 0 ms");
+        lblTime.setStyle("-fx-text-fill: #e6edf3; -fx-font-size: 13px;");
+        Label lblSnapshot = new Label("Snapshot: --");
+        lblSnapshot.setStyle("-fx-text-fill: #4c9aff; -fx-font-size: 13px; -fx-font-weight: bold;");
+
+        overlay.getChildren().addAll(lblPackets, lblTime, lblSnapshot);
+        StackPane.setAlignment(overlay, javafx.geometry.Pos.TOP_LEFT);
+        StackPane.setMargin(overlay, new Insets(16.0));
+        centerPane.getChildren().add(overlay);
+
+        // Guarda referencias para atualizacao via controller
+        // Vamos expor metodos no GraphPane ou usar propriedades
+        // Por simplicidade, o controller atualiza labels via reflection
+        // ou podemos adicionar um callback. Vamos fazer o controller
+        // atualizar diretamente os labels.
+        controlPanel.setOverlayLabels(lblPackets, lblTime, lblSnapshot);
+
+        root.setCenter(centerPane);
+
+        // Direita: ControlPanel ja organizado em secoes
+        controlPanel.getStyleClass().add("secao");
         root.setRight(controlPanel);
-        root.setBottom(bottomBox);
+
+        // Inferior: TabPane com abas Log, Resultados, Comparacao
+        TabPane bottomTabs = new TabPane();
+        bottomTabs.setPrefHeight(240.0);
+        bottomTabs.setMinHeight(240.0);
+        bottomTabs.setMaxHeight(240.0);
+        bottomTabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+
+        Tab tabLog = new Tab("Log", eventLogPane);
+        Tab tabResultados = new Tab("Resultados", resultsTable.getNode());
+        Tab tabComparacao = new Tab("Comparacao", comparisonChart);
+
+        bottomTabs.getTabs().addAll(tabLog, tabResultados, tabComparacao);
+        root.setBottom(bottomTabs);
+
+        Scene scene = new Scene(root, 1100.0, 800.0);
+        Theme.apply(scene);
 
         stage.setTitle("Roteamento por Inundacao");
-        stage.setScene(new Scene(root, 1100.0, 800.0));
+        stage.setScene(scene);
         stage.show();
     }//fim do metodo start
 
