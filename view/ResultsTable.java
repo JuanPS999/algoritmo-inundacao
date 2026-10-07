@@ -23,9 +23,11 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
+import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
+import javafx.scene.control.Tooltip;
 import util.Statistics;
 
 /**
@@ -71,16 +73,28 @@ public final class ResultsTable {
         table.setItems(items);
         table.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
 
-        TableColumn<RowData, String> colVersion = new TableColumn<RowData, String>("VERSAO");
+        TableColumn<RowData, String> colVersion = new TableColumn<RowData, String>("V");
         colVersion.setCellValueFactory(cell -> new SimpleStringProperty("V" + cell.getValue().version));
+        colVersion.setPrefWidth(30);
+        Label hdrVersion = new Label("V");
+        hdrVersion.setTooltip(new Tooltip("VERSAO"));
+        colVersion.setGraphic(hdrVersion);
 
-        TableColumn<RowData, Long> colLast = new TableColumn<RowData, Long>("ULTIMA");
+        TableColumn<RowData, Long> colLast = new TableColumn<RowData, Long>("ULT");
         colLast.setCellValueFactory(cell -> new SimpleLongProperty(cell.getValue().lastSnapshot).asObject());
         colLast.setCellFactory(col -> new TableCellMonospace());
+        colLast.setPrefWidth(70);
+        Label hdrLast = new Label("ULT");
+        hdrLast.setTooltip(new Tooltip("ULTIMA EXECUCAO"));
+        colLast.setGraphic(hdrLast);
 
         TableColumn<RowData, Integer> colN = new TableColumn<RowData, Integer>("N");
         colN.setCellValueFactory(cell -> new SimpleIntegerProperty(cell.getValue().samples.size()).asObject());
         colN.setCellFactory(col -> new TableCellMonospace());
+        colN.setPrefWidth(40);
+        Label hdrN = new Label("N");
+        hdrN.setTooltip(new Tooltip("QUANTIDADE DE EXECUCOES VALIDAS"));
+        colN.setGraphic(hdrN);
 
         TableColumn<RowData, Double> colMean = new TableColumn<RowData, Double>("MEDIA");
         colMean.setCellValueFactory(cell -> {
@@ -88,13 +102,21 @@ public final class ResultsTable {
             return new ReadOnlyObjectWrapper<Double>(m);
         });
         colMean.setCellFactory(col -> new TableCellMonospace());
+        colMean.setPrefWidth(80);
+        Label hdrMean = new Label("MEDIA");
+        hdrMean.setTooltip(new Tooltip("MEDIA DOS SNAPSHOTS"));
+        colMean.setGraphic(hdrMean);
 
-        TableColumn<RowData, Double> colStdDev = new TableColumn<RowData, Double>("DESVIO");
+        TableColumn<RowData, Double> colStdDev = new TableColumn<RowData, Double>("DESV");
         colStdDev.setCellValueFactory(cell -> {
             double s = Statistics.standardDeviation(cell.getValue().samples);
             return new ReadOnlyObjectWrapper<Double>(s);
         });
         colStdDev.setCellFactory(col -> new TableCellMonospace());
+        colStdDev.setPrefWidth(80);
+        Label hdrStdDev = new Label("DESV");
+        hdrStdDev.setTooltip(new Tooltip("DESVIO PADRAO"));
+        colStdDev.setGraphic(hdrStdDev);
 
         TableColumn<RowData, Long> colMin = new TableColumn<RowData, Long>("MIN");
         colMin.setCellValueFactory(cell -> {
@@ -103,6 +125,10 @@ public final class ResultsTable {
             return new SimpleLongProperty(v).asObject();
         });
         colMin.setCellFactory(col -> new TableCellMonospace());
+        colMin.setPrefWidth(60);
+        Label hdrMin = new Label("MIN");
+        hdrMin.setTooltip(new Tooltip("VALOR MINIMO"));
+        colMin.setGraphic(hdrMin);
 
         TableColumn<RowData, Long> colMax = new TableColumn<RowData, Long>("MAX");
         colMax.setCellValueFactory(cell -> {
@@ -111,18 +137,33 @@ public final class ResultsTable {
             return new SimpleLongProperty(v).asObject();
         });
         colMax.setCellFactory(col -> new TableCellMonospace());
+        colMax.setPrefWidth(60);
+        Label hdrMax = new Label("MAX");
+        hdrMax.setTooltip(new Tooltip("VALOR MAXIMO"));
+        colMax.setGraphic(hdrMax);
 
-        TableColumn<RowData, Integer> colUnreachable = new TableColumn<RowData, Integer>("INALCANCAVEIS");
+        TableColumn<RowData, Integer> colUnreachable = new TableColumn<RowData, Integer>("INAL");
         colUnreachable.setCellValueFactory(cell -> new SimpleIntegerProperty(cell.getValue().unreachable).asObject());
         colUnreachable.setCellFactory(col -> new TableCellMonospace());
+        colUnreachable.setPrefWidth(55);
+        Label hdrUnreachable = new Label("INAL");
+        hdrUnreachable.setTooltip(new Tooltip("INALCANCAVEIS"));
+        colUnreachable.setGraphic(hdrUnreachable);
 
-        TableColumn<RowData, Integer> colAborted = new TableColumn<RowData, Integer>("ABORTADAS");
+        TableColumn<RowData, Integer> colAborted = new TableColumn<RowData, Integer>("ABOR");
         colAborted.setCellValueFactory(cell -> new SimpleIntegerProperty(cell.getValue().aborted).asObject());
         colAborted.setCellFactory(col -> new TableCellMonospace());
+        colAborted.setPrefWidth(55);
+        Label hdrAborted = new Label("ABOR");
+        hdrAborted.setTooltip(new Tooltip("ABORTADAS"));
+        colAborted.setGraphic(hdrAborted);
 
         table.getColumns().addAll(colVersion, colLast, colN, colMean, colStdDev, colMin, colMax, colUnreachable, colAborted);
         table.setFixedCellSize(25.0);
-        table.setPrefHeight(4 * 25.0 + 30.0);
+        // Altura = cabecalho (25) + 4 linhas * 25 = 125, sem linhas vazias
+        table.setPrefHeight(25.0 + 4 * 25.0);
+        table.setMinHeight(25.0 + 4 * 25.0);
+        table.setMaxHeight(25.0 + 4 * 25.0);
 
         // Zebra striping via row factory
         table.setRowFactory(tv -> new TableRow<RowData>() {
