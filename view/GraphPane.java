@@ -14,8 +14,10 @@
 package view;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javafx.geometry.VPos;
 import javafx.scene.Cursor;
 import javafx.scene.Group;
@@ -23,6 +25,7 @@ import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
+import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
 import javafx.scene.shape.Polygon;
 import javafx.scene.shape.Rectangle;
@@ -37,7 +40,7 @@ import model.Simulator;
 
 public class GraphPane extends Pane {
 
-    private static final double PACKET_RADIUS = 3.0;
+    private static final double PACKET_RADIUS = 4.0;
     private static final double MARGIN = 50.0;
     private static final double HIT_WIDTH = 16.0;
     private static final double GRID_SIZE = 40.0;
@@ -83,6 +86,9 @@ public class GraphPane extends Pane {
     private int destinationId = 0;
     private boolean destinationReached = false;
     private boolean bgNeedsRedraw = true;
+
+    // Conjunto de links com pacotes em transito (para destacar cabos ativos)
+    private final Set<Link> activeLinks = new HashSet<Link>();
 
     // Mapa de pulsos ativos: nodeId -> instante de ativacao (nanoTime)
     private final Map<Integer, Long> nodePulses = new HashMap<Integer, Long>();
@@ -194,6 +200,19 @@ public class GraphPane extends Pane {
         double w = getWidth();
         double h = getHeight();
 
+        // Calcular conjunto de links com pacotes em transito
+        Set<Link> newActiveLinks = new HashSet<Link>();
+        for (Simulator.InFlight flight : flights) {
+            newActiveLinks.add(flight.link);
+        }
+
+        // So redesenha cabos se o conjunto de links ativos mudou
+        if (!newActiveLinks.equals(activeLinks)) {
+            activeLinks.clear();
+            activeLinks.addAll(newActiveLinks);
+            drawLinks();
+        }
+
         // Pacotes no packetsCanvas
         GraphicsContext gcPkt = packetsCanvas.getGraphicsContext2D();
         gcPkt.clearRect(0, 0, w, h);
@@ -204,7 +223,10 @@ public class GraphPane extends Pane {
             gcPkt.setFont(Font.font("Monospaced", FontWeight.BOLD, TTL_FONT_SIZE));
             gcPkt.setFill(Theme.TEXT_COLOR);
         }
-        gcPkt.setFill(PACKET_COLOR);
+
+        // Pacotes: preenchimento #fe8019, contorno 1px #1d2021, raio 4
+        Color packetFill = Theme.ORANGE_ACCENT_COLOR; // #fe8019
+        Color packetStroke = Theme.BG_COLOR;          // #1d2021
 
         for (Simulator.InFlight flight : flights) {
             Link link = flight.link;
@@ -218,10 +240,18 @@ public class GraphPane extends Pane {
             double x = fromX + (nodeX[toId - 1] - fromX) * progress;
             double y = fromY + (nodeY[toId - 1] - fromY) * progress;
 
+            // Contorno
+            gcPkt.setStroke(packetStroke);
+            gcPkt.setLineWidth(1.0);
+            gcPkt.strokeOval(x - PACKET_RADIUS, y - PACKET_RADIUS,
+                    PACKET_RADIUS * 2.0, PACKET_RADIUS * 2.0);
+            // Preenchimento
+            gcPkt.setFill(packetFill);
             gcPkt.fillOval(x - PACKET_RADIUS, y - PACKET_RADIUS,
                     PACKET_RADIUS * 2.0, PACKET_RADIUS * 2.0);
 
             if (drawTtl) {
+                gcPkt.setFill(Theme.TEXT_COLOR);
                 String ttlText = "ttl=" + flight.packet.getTtl();
                 gcPkt.fillText(ttlText, x + TTL_OFFSET_X, y + TTL_OFFSET_Y);
             }
@@ -395,17 +425,19 @@ public class GraphPane extends Pane {
 
     /* ***************************************************************
     * Metodo: drawLinks
-    * Funcao: desenha TODOS os cabos primeiro (contorno escuro + nucleo claro),
-    *         depois TODAS as placas de peso por cima. Desabilitado: tracejado
-    *         cinza #665c54 com marca de corte.
+    * Funcao: desenha TODOS os cabos primeiro (contorno #504945 + nucleo),
+    *         nucleo em repouso bege #a89984, nucleo ativo laranja #fe8019,
+    *         desabilitado: tracejado #665c54 com X vermelho no meio.
+    *         So redesenha quando o conjunto de links ativos muda.
     * Parametros: nenhum
     * Retorno: void
     *************************************************************** */
     private void drawLinks() {
         linksLayer.getChildren().clear();
-        Color outerColor = Theme.BORDER_COLOR;
-        Color coreColor = Theme.YELLOW_COLOR;
-        Color disabledColor = Theme.INACTIVE_COLOR;
+        Color outerColor = Theme.BORDER_COLOR;           // #504945
+        Color coreRestColor = Theme.TEXT_SECONDARY_COLOR; // #a89984 (bege) - repouso
+        Color coreActiveColor = Theme.ORANGE_ACCENT_COLOR; // #fe8019 (laranja) - ativo
+        Color disabledColor = Theme.INACTIVE_COLOR;       // #665c54
 
         for (Link link : graph.getLinks()) {
             double x1 = nodeX[link.getA() - 1];
@@ -417,6 +449,7 @@ public class GraphPane extends Pane {
             outer.setStrokeWidth(7.0);
             outer.setStrokeLineCap(StrokeLineCap.ROUND);
             outer.setMouseTransparent(true);
+            outer.setStroke(outerColor);
 
             Line core = new Line(x1, y1, x2, y2);
             core.setStrokeWidth(3.0);
@@ -429,8 +462,8 @@ public class GraphPane extends Pane {
             hitArea.setCursor(Cursor.HAND);
 
             if (link.isEnabled()) {
-                outer.setStroke(outerColor);
-                core.setStroke(coreColor);
+                boolean isActive = activeLinks.contains(link);
+                core.setStroke(isActive ? coreActiveColor : coreRestColor);
             } else {
                 outer.setStroke(disabledColor);
                 outer.getStrokeDashArray().addAll(10.0, 6.0);
@@ -585,7 +618,8 @@ public class GraphPane extends Pane {
     /* ***************************************************************
     * Metodo: drawLegend
     * Funcao: desenha legenda compacta no canto inferior direito.
-    *         Itens: TX, RX, cabo ativo, cabo cortado, pacote, pulso.
+    *         Itens: TX, RX, cabo em repouso, cabo ativo, cabo cortado,
+    *                pacote (ponto c/ contorno), pulso (anel contorno).
     *         Texto 12px monoespacado, baixo contraste, nao interativo.
     * Parametros: nenhum
     * Retorno: void
@@ -600,24 +634,22 @@ public class GraphPane extends Pane {
         Font legendFont = Font.font("Monospaced", FontWeight.NORMAL, LEGEND_FONT_SIZE);
         Color textColor = Theme.TEXT_SECONDARY_COLOR; // baixo contraste
 
-        // Itens da legenda: {cor do simbolo, texto}
+        // Itens da legenda: {cor do simbolo, texto, tipo}
         class LegendItem {
             Color color;
             String text;
-            boolean isDashed;
-            boolean isPulse;
-            LegendItem(Color c, String t) { color = c; text = t; isDashed = false; isPulse = false; }
-            LegendItem(Color c, String t, boolean dashed) { color = c; text = t; isDashed = dashed; isPulse = false; }
-            LegendItem(Color c, String t, boolean dashed, boolean pulse) { color = c; text = t; isDashed = dashed; isPulse = pulse; }
+            int type; // 0=filled rect (TX/RX), 1=line (cable), 2=dashed line with X, 3=filled circle with stroke (packet), 4=pulse ring
+            LegendItem(Color c, String t, int tp) { color = c; text = t; type = tp; }
         }
 
         LegendItem[] items = new LegendItem[] {
-            new LegendItem(Theme.TX_COLOR_OBJ, "TX"),
-            new LegendItem(Theme.RX_COLOR_OBJ, "RX"),
-            new LegendItem(Theme.YELLOW_COLOR, "cabo ativo"),
-            new LegendItem(Theme.INACTIVE_COLOR, "cabo cortado", true),
-            new LegendItem(PACKET_COLOR, "pacote"),
-            new LegendItem(Theme.ORANGE_ACCENT_COLOR, "pulso")
+            new LegendItem(Theme.TX_COLOR_OBJ, "TX", 0),
+            new LegendItem(Theme.RX_COLOR_OBJ, "RX", 0),
+            new LegendItem(Theme.TEXT_SECONDARY_COLOR, "cabo em repouso", 1),   // bege #a89984
+            new LegendItem(Theme.ORANGE_ACCENT_COLOR, "cabo ativo", 1),           // laranja #fe8019
+            new LegendItem(Theme.INACTIVE_COLOR, "cabo cortado", 2),              // tracejado #665c54 c/ X
+            new LegendItem(Theme.ORANGE_ACCENT_COLOR, "pacote", 3),               // ponto laranja c/ contorno #1d2021
+            new LegendItem(Theme.ORANGE_ACCENT_COLOR, "pulso", 4)                 // anel contorno
         };
 
         // Calcula largura total da legenda
@@ -652,8 +684,8 @@ public class GraphPane extends Pane {
             double symX = startX + LEGEND_PADDING + LEGEND_SYMBOL_SIZE / 2.0;
             double symY = y - LEGEND_ITEM_HEIGHT / 2.5;
 
-            if (item.isPulse) {
-                // Hexagono contorno laranja (pulso)
+            if (item.type == 4) {
+                // Pulso: hexagono so contorno laranja
                 Polygon p = new Polygon();
                 double pr = LEGEND_SYMBOL_SIZE / 2.0;
                 for (int v = 0; v < 6; v++) {
@@ -669,15 +701,15 @@ public class GraphPane extends Pane {
                 p.setStrokeLineCap(StrokeLineCap.ROUND);
                 p.setMouseTransparent(true);
                 legendLayer.getChildren().add(p);
-            } else if (item.isDashed) {
-                // Linha tracejada cinza
+            } else if (item.type == 2) {
+                // Cabo cortado: linha tracejada cinza #665c54 com X
                 Line l = new Line(symX - LEGEND_SYMBOL_SIZE / 2.0, symY, symX + LEGEND_SYMBOL_SIZE / 2.0, symY);
                 l.setStroke(item.color);
                 l.setStrokeWidth(2.5);
                 l.getStrokeDashArray().addAll(6.0, 4.0);
                 l.setMouseTransparent(true);
                 legendLayer.getChildren().add(l);
-                // Pequeno X
+                // X no meio
                 Line x1 = new Line(symX - 4, symY - 4, symX + 4, symY + 4);
                 Line x2 = new Line(symX - 4, symY + 4, symX + 4, symY - 4);
                 x1.setStroke(Theme.RED_COLOR);
@@ -687,8 +719,24 @@ public class GraphPane extends Pane {
                 x1.setMouseTransparent(true);
                 x2.setMouseTransparent(true);
                 legendLayer.getChildren().addAll(x1, x2);
+            } else if (item.type == 3) {
+                // Pacote: ponto cheio laranja #fe8019 com contorno 1px #1d2021
+                Circle c = new Circle(symX, symY, LEGEND_SYMBOL_SIZE / 2.5);
+                c.setFill(item.color);
+                c.setStroke(Theme.BG_COLOR); // #1d2021
+                c.setStrokeWidth(1.0);
+                c.setMouseTransparent(true);
+                legendLayer.getChildren().add(c);
+            } else if (item.type == 1) {
+                // Cabo: linha horizontal (bege ou laranja)
+                Line l = new Line(symX - LEGEND_SYMBOL_SIZE / 2.0, symY, symX + LEGEND_SYMBOL_SIZE / 2.0, symY);
+                l.setStroke(item.color);
+                l.setStrokeWidth(3.0);
+                l.setStrokeLineCap(StrokeLineCap.ROUND);
+                l.setMouseTransparent(true);
+                legendLayer.getChildren().add(l);
             } else {
-                // Quadrado/retangulo preenchido para TX, RX, cabo ativo, pacote
+                // TX/RX: retangulo preenchido
                 Rectangle r = new Rectangle(symX - LEGEND_SYMBOL_SIZE / 2.0, symY - LEGEND_SYMBOL_SIZE / 3.0, LEGEND_SYMBOL_SIZE, LEGEND_SYMBOL_SIZE * 0.6);
                 r.setFill(item.color);
                 r.setStroke(Theme.BORDER_COLOR);
