@@ -78,7 +78,7 @@ A;B;PESO
 - **V1**: Cada pacote que chega e enviado por TODAS as interfaces.
 - **V2**: Igual a V1, EXCETO pela interface de chegada.
 - **V3**: Igual a V2, mais verificacao/decremento de TTL (descarte se TTL <= 0).
-- **V4**: Stub que delega a V3 (otimizacao nao definida).
+- **V4**: Baseada na V3, adiciona deduplicacao temporal por no. Cada no mantem registro do instante da ultima observacao de cada messageId. Se uma copia chegar dentro da janela configurada (windowMs), e descartada como duplicata (nao reencaminhada, nao renova o registro). Com window=0, V4 equivale a V3.
 
 ## Modo Lote (GUI)
 - Botao "Executar N vezes" roda N execucoes (default 30) em thread daemon.
@@ -105,7 +105,7 @@ model/                  Graph, Node, Link, Packet, Simulator,
 controller/             SimulationController, BatchRunner, BatchResult,
                         StrategyFactory
 view/                   FloodingApp, GraphPane, ControlPanel,
-                        ResultsTable, AboutDialog
+                        ResultsTable
 util/                   BackboneLoader, ConsoleRunner, BatchConsole,
                         Statistics, GraphInfo
 ```

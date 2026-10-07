@@ -1,63 +1,549 @@
-# Arquitetura do Simulador de Roteamento por Inundacao
+Arquitetura - Simulador de Inundacao
+1. Visao geral
 
-## Visao Geral
-Arquitetura MVC (Model-View-Controller) em Java 8 com JavaFX.
-Pacotes: model, controller, view, util (na raiz do projeto, sem pasta src).
+O projeto implementa um simulador de algoritmos de roteamento por inundacao para a disciplina de Redes II.
 
-## Fluxo de um Pacote
+A aplicacao possui:
 
-1. **Inicio (Simulator.start)**
-   - O transmissor cria uma copia do pacote para cada interface (link) habilitada.
-   - Cada copia recebe ID unico, TTL inicial e interface de chegada = null.
-   - A copia e colocada na fila de eventos (PriorityQueue) com tempo de chegada = tempo atual + latencia aleatoria [1,500] ms.
-   - Contador de pacotes gerados incrementa a cada copia.
+    simulador de eventos discretos;
 
-2. **Processamento de Evento (Simulator.process)**
-   - Evento removido da fila (menor tempo, desempate FIFO).
-   - Se o link foi desabilitado durante o transito: descarta.
-   - Se o no e o receptor e ainda nao ha snapshot: registra snapshot (contador atual, tempo virtual).
-   - Chama a estrategia de encaminhamento para obter lista de links de saida.
-   - Para cada link de saida: cria nova copia com interface de chegada = esse link, agenda chegada em tempo atual + latencia, incrementa contador.
+    quatro estrategias de encaminhamento;
 
-3. **Estrategias (ForwardingStrategy.forward)**
-   - V1: retorna todas as interfaces do no.
-   - V2: retorna todas exceto a interface de chegada do pacote.
-   - V3: como V2, mas decrementa TTL; se TTL <= 0, retorna lista vazia (descartado).
-   - V4: stub que delega para V3.
+    interface grafica em JavaFX;
 
-4. **Tempo Virtual**
-   - GUI: AnimationTimer avanca relogio virtual proporcional ao tempo real * fator de velocidade.
-   - Chamadas pull: `advanceTo(tempo)` processa eventos ate esse instante; `inFlight()` devolve pacotes em transito para desenho.
-   - Lote: `runUntilFirstArrival()` processa ate primeira chegada, fila vazia ou limite ABORT_LIMIT (2M).
+    execucao em modo console;
 
-5. **Desenho (GraphPane)**
-   - Nos em circulo, links com peso. Clique alterna habilitado/desabilitado.
-   - Pacotes interpolados ao longo do link; TTL exibido nas versoes 3 e 4.
+    execucao de lotes para comparacao estatistica;
 
-## Modelo (model/)
-- Graph, Node, Link: topologia carregada de backbone.txt.
-- Packet: id, ttl, incomingLink.
-- Simulator: nucleo de eventos, tempo virtual, snapshot, listener.
-- ForwardingStrategy + 4 implementacoes.
-- LatencyProvider: latencia aleatoria [1,500] por transmissao.
-- RunResult: resultado de execucao em lote.
+    visualizacao dos pacotes em transito;
 
-## Controlador (controller/)
-- SimulationController: liga GUI (ControlPanel, GraphPane, ResultsTable) ao Simulator; AnimationTimer; Task para lote.
-- BatchRunner: executa N simulacoes em lote (sem JavaFX), usa StrategyFactory.
-- StrategyFactory: cria estrategia por numero da versao.
-- BatchResult: imutavel, contem amostras, abortadas, inalcançaveis.
+    registro de eventos;
 
-## Visao (view/)
-- FloodingApp: Application, carrega backbone, monta janela (MenuBar, GraphPane centro, ControlPanel direita, ResultsTable baixo).
-- ControlPanel: ComboBox versao/origem/destino, Spinner TTL/N, Slider velocidade, botoes, labels.
-- GraphPane: desenho do grafo e pacotes em transito.
-- ResultsTable: TableView 4 linhas (V1-V4) com colunas Versao, Ultima, N, Media, Desvio.
-- AboutDialog: Alert com autor, matricula, disciplina, versoes, OPTION4_TEXT.
+    suporte a seed para reproducibilidade;
 
-## Util (util/)
-- BackboneLoader: le backbone.txt (N; linhas A;B;PESO), valida ids, calcula diametro (BFS).
-- ConsoleRunner: execucao unica via linha de comando, imprime eventos e snapshot.
-- BatchConsole: executa lote para todas versoes via linha de comando.
-- Statistics: mean e standardDeviation amostral de List<Long>.
-- GraphInfo: diametro do grafo (BFS).
+    deduplicacao temporal na estrategia V4.
+
+Fluxo geral:
+
+Principal
+    |
+    v
+FloodingApp
+    |
+    +-------------------------------+
+    |               |               |
+    v               v               v
+ControlPanel    GraphPane       ResultsTable
+    |               |               |
+    +---------------+---------------+
+                    |
+                    v
+          SimulationController
+                    |
+                    v
+                Simulator
+                    |
+                    v
+        ForwardingStrategy
+          /    /    |    \
+        V1    V2    V3    V4
+
+2. Interface grafica
+FloodingApp
+
+Responsavel pela composicao inicial da interface:
+
+    carregar o backbone;
+
+    criar os componentes visuais;
+
+    criar o SimulationController;
+
+    conectar os componentes;
+
+    montar a Scene;
+
+    configurar o Stage;
+
+    aplicar o tema.
+
+FloodingApp nao controla o ciclo de vida da simulacao.
+ControlPanel
+
+Concentra os controles da interface:
+
+    origem e destino;
+
+    estrategia;
+
+    TTL;
+
+    seed;
+
+    velocidade;
+
+    Start;
+
+    Pause;
+
+    Reset;
+
+    Step;
+
+    batch;
+
+    contadores e estado.
+
+As acoes sao comunicadas ao SimulationController por callbacks.
+SimulationController
+
+E o controlador principal da interface grafica.
+
+Responsabilidades:
+
+    receber comandos do ControlPanel;
+
+    controlar o estado da simulacao;
+
+    criar/recriar o Simulator;
+
+    controlar o tempo virtual;
+
+    controlar o AnimationTimer;
+
+    processar frames;
+
+    atualizar a visualizacao;
+
+    atualizar resultados;
+
+    atualizar o log;
+
+    controlar Start, Pause, Step e Reset;
+
+    executar batches solicitados pela interface.
+
+O AnimationTimer pertence ao SimulationController.
+GraphPane
+
+Representa visualmente:
+
+    nos;
+
+    enlaces;
+
+    pacotes em transito;
+
+    direcao dos pacotes;
+
+    TTL quando habilitado.
+
+A direcao usa a origem registrada no evento de voo (fromNode), evitando depender da identidade de uma instancia especifica de Packet.
+ResultsTable
+
+Apresenta resultados da simulacao, incluindo quando aplicavel:
+
+    estrategia;
+
+    snapshot;
+
+    tempo virtual;
+
+    quantidade de pacotes;
+
+    estatisticas de RunResult.
+
+Fornece seu Node para insercao no layout.
+EventLogPane
+
+Exibe os eventos produzidos durante a simulacao. O SimulationController encaminha os eventos para o painel por meio de um consumidor de log.
+Theme
+
+Concentra a configuracao visual. A aplicacao deve utilizar:
+
+Theme.apply(scene);
+
+Nao existe dependencia de um arquivo externo theme.css.
+3. Modelo da simulacao
+Graph
+
+Representa a topologia carregada de backbone.txt.
+
+Os nos sao identificados por IDs e os enlaces conectam os nos. O peso do enlace representa o custo/peso da topologia e nao a latencia de transmissao.
+Node
+
+Representa um no da rede e suas conexoes.
+Link
+
+Representa um enlace entre dois nos. Enlaces desabilitados devem descartar transmisssoes.
+Packet
+
+Representa uma copia de pacote em transito.
+
+Entre seus dados estao:
+
+    id: identifica a copia;
+
+    messageId: identifica a mensagem logica;
+
+    TTL;
+
+    origem;
+
+    destino;
+
+    enlace de entrada, quando aplicavel.
+
+Cada copia encaminhada possui seu proprio id. Copias da mesma mensagem logica compartilham o mesmo messageId.
+Simulator
+
+E o nucleo da simulacao.
+
+Responsabilidades:
+
+    criar o pacote inicial;
+
+    controlar o tempo virtual;
+
+    agendar transmisssoes;
+
+    processar chegadas;
+
+    aplicar estrategias;
+
+    contar pacotes;
+
+    registrar a primeira chegada no destino;
+
+    produzir RunResult.
+
+A simulacao usa uma fila de prioridade de eventos. Eventos sao processados em ordem de tempo virtual; empates preservam a ordem de insercao.
+4. Tempo e latencia
+
+Cada transmissao recebe latencia aleatoria entre 1 ms e 500 ms.
+
+A seed permite reproduzir a mesma sequencia pseudoaleatoria.
+
+O peso do enlace nao representa a latencia.
+
+O tempo da simulacao e virtual. Na GUI, o AnimationTimer converte tempo real em avanco de tempo virtual conforme a velocidade selecionada.
+5. Entrega no destino
+
+Quando um pacote chega ao destino:
+
+    a chegada e validada;
+
+    se for a primeira chegada, o snapshot e registrado;
+
+    a estrategia ainda pode decidir encaminhar o pacote;
+
+    as copias encaminhadas seguem normalmente.
+
+O snapshot representa o numero de pacotes observado na primeira chegada ao destino.
+6. Estrategias de inundacao
+V1 - Todas as interfaces
+
+Encaminha por todas as interfaces disponiveis. O enlace de entrada nao impede o encaminhamento. TTL nao limita V1.
+V2 - Exceto interface de entrada
+
+Encaminha por todas as interfaces, exceto aquela pela qual o pacote acabou de chegar.
+V3 - TTL
+
+Usa a logica da V2 e adiciona TTL:
+
+    decrementa o TTL;
+
+    encaminha se ainda puder ser encaminhado;
+
+    reconhece a entrega no destino antes do descarte por TTL.
+
+O TTL padrao pode ser calculado a partir do diametro do grafo.
+V4 - Deduplicacao temporal
+
+Usa a logica da V3 e adiciona deduplicacao temporal por no.
+
+Possui windowMs, com padrao de 1000 ms.
+
+O estado e mantido por no:
+
+messageId -> instante da ultima observacao
+
+Uma mensagem e duplicada quando:
+
+tempoAtual - instanteVisto < windowMs
+
+Duplicatas:
+
+    nao sao encaminhadas;
+
+    nao renovam o instante da observacao.
+
+Entradas expiradas sao removidas somente durante consultas. Nao existem timers ou eventos separados para expiracao.
+
+A origem e registrada como primeira observacao no instante zero.
+
+Com windowMs = 0, V4 deve ser equivalente a V3.
+7. StrategyFactory
+
+Centraliza a criacao das estrategias:
+
+    V1;
+
+    V2;
+
+    V3;
+
+    V4;
+
+    V4 com windowMs especificado.
+
+Cada execucao deve possuir estado de estrategia independente.
+8. WindowSweep
+
+Compara V4 usando as janelas:
+
+0
+250
+500
+1000
+1500
+2000
+5000
+
+Permite observar o efeito da janela temporal na deduplicacao e na inundacao.
+9. Execucao em lote
+BatchRunner
+
+Executa varias simulacoes para uma configuracao, podendo variar:
+
+    estrategia;
+
+    origem;
+
+    destino;
+
+    quantidade de execucoes;
+
+    seed.
+
+BatchConsole
+
+Fornece execucao de batches em console.
+
+Resultados podem incluir:
+
+    media;
+
+    desvio padrao;
+
+    quantidade de execucoes validas;
+
+    snapshot;
+
+    quantidade de pacotes;
+
+    estatisticas;
+
+    duplicatas na V4.
+
+Statistics
+
+Concentra calculos estatisticos usados pelos batches.
+10. Carregamento da topologia
+
+BackboneLoader le backbone.txt e transforma sua descricao em um Graph.
+
+A mesma topologia e usada pela interface grafica e pelas execucoes de console.
+11. Organizacao dos pacotes
+
+model/
+    ForwardingStrategy.java
+    Graph.java
+    LatencyProvider.java
+    Link.java
+    Node.java
+    Packet.java
+    RunResult.java
+    SimulationListener.java
+    Simulator.java
+    Strategy1AllInterfaces.java
+    Strategy2ExceptIncoming.java
+    Strategy3Ttl.java
+    Strategy4Custom.java
+
+controller/
+    BatchResult.java
+    BatchRunner.java
+    SimulationController.java
+    StrategyFactory.java
+
+view/
+    ControlPanel.java
+    EventLogPane.java
+    FloodingApp.java
+    GraphPane.java
+    ResultsTable.java
+    Theme.java
+
+util/
+    BackboneLoader.java
+    BatchConsole.java
+    ConsoleRunner.java
+    GraphInfo.java
+    NodeLabelUtil.java
+    Statistics.java
+    WindowSweep.java
+
+12. Separacao de responsabilidades
+View
+
+Responsavel por:
+
+    exibicao;
+
+    controles;
+
+    graficos;
+
+    tabela;
+
+    log;
+
+    tema.
+
+Controller
+
+Responsavel por:
+
+    coordenar a interface;
+
+    controlar o ciclo da simulacao grafica;
+
+    traduzir comandos da interface para operacoes do modelo.
+
+Model
+
+Responsavel por:
+
+    grafo;
+
+    nos;
+
+    enlaces;
+
+    pacotes;
+
+    eventos;
+
+    estrategias;
+
+    simulacao.
+
+Util
+
+Responsavel por:
+
+    carregamento;
+
+    estatisticas;
+
+    execucao em console;
+
+    varreduras experimentais;
+
+    informacoes auxiliares.
+
+13. Reprodutibilidade
+
+As simulacoes aceitam seed.
+
+Com os mesmos:
+
+    backbone;
+
+    origem;
+
+    destino;
+
+    estrategia;
+
+    parametros;
+
+    seed
+
+o comportamento deterministico esperado deve ser preservado.
+14. Regras de compatibilidade
+
+O projeto deve permanecer compativel com:
+
+    Java 8;
+
+    JavaFX 8.
+
+Compilacao principal:
+
+javac Principal.java
+
+Build:
+
+./build.sh
+
+Execucao grafica:
+
+./run.sh
+
+15. Estado atual da arquitetura
+
+Fluxo da GUI:
+
+Usuario
+   |
+   v
+ControlPanel
+   |
+ callbacks
+   v
+SimulationController
+   |
+   v
+Simulator
+   |
+   v
+ForwardingStrategy
+   |
+   +--> V1
+   +--> V2
+   +--> V3
+   +--> V4
+
+Apresentacao:
+
+SimulationController
+       |
+       +--> GraphPane
+       +--> ResultsTable
+       +--> EventLogPane
+       +--> ControlPanel
+
+FloodingApp monta essa estrutura e inicia a aplicacao.
+16. Principio para manutencao
+
+Alteracoes futuras devem ser pequenas e direcionadas.
+
+Nao fazer grandes refatoracoes estruturais durante a fase final do trabalho.
+
+Prioridade:
+
+    manter a compilacao;
+
+    preservar as regras das estrategias;
+
+    preservar a reproducibilidade;
+
+    corrigir bugs reais;
+
+    validar a interface;
+
+    manter a documentacao sincronizada com o codigo;
+
+    preparar a entrega final.

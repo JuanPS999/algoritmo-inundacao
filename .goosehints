@@ -1,249 +1,509 @@
-# Projeto: Roteamento por Inundacao (Redes de Computadores II, UESB)
+# PROJETO
 
-## Contexto
-Trabalho academico. Implementar 4 versoes de roteamento por inundacao com GUI em JavaFX e
-medir quantos pacotes sao gerados ate o destino ser atingido, por versao.
-  Versao 1: cada pacote que chega e enviado por TODAS as interfaces do roteador.
-  Versao 2: igual a 1, EXCETO pela interface de chegada.
-  Versao 3: igual a 2, mais verificacao/decremento de TTL.
-  Versao 4: igual a 3, mais deduplicacao por janela de tempo por no.
-             Nao inventar outras otimizacoes.
+Projeto de Redes II - Algoritmo de Roteamento por Inundacao.
 
-## Modo de trabalho
-- Trabalho por marcos (ver secao Marcos). Execute SOMENTE o marco que eu pedir.
-- Dentro de um marco, trabalhe com autonomia e escreva o plano em ate 5 linhas antes.
-- Cada marco deve ser concluido integralmente antes da resposta final. Nao peca
-  autorizacao para continuar uma funcionalidade que ja pertence ao marco atual.
-- Pare e pergunte apenas para: instalar pacotes (sudo/pacman), apagar arquivos fora do
-  projeto, ou mudanca de arquitetura.
-- Ao fim de cada marco: compile, rode o que for possivel, faca `git commit -m "Marco N"`,
-  e resuma em poucas linhas o que foi feito, como executar e o que ficou pendente.
-- Nao escreva testes automatizados com valores esperados; os testes serao feitos depois.
-- Sem dependencias externas.
-- Execucao de processos (regra obrigatoria): testes que executam algoritmos
-  potencialmente nao terminantes devem sempre possuir timeout explicito. Um timeout
-  pode ser um resultado esperado e nao deve ser interpretado automaticamente como
-  falha. Nunca executar um cenario potencialmente nao terminante sem mecanismo para
-  interromper o processo.
-  * Use sempre: `timeout -k 2 10 java -Xmx512m -cp build ...` (codigo 124 = estourou
-    o timeout). Limite a saida com `| head -n 200`.
-  * Reporte timeouts como "timeout (esperado)" ou "timeout (inesperado)", conforme o
-    cenario. Ex.: versoes 1 e 2 rodando alem do snapshot em grafo com ciclo = esperado.
-  * NUNCA abra a GUI em primeiro plano. Para verificar que ela inicia, use
-    `timeout 8 ./run.sh`; codigo 124 sem excecao no stderr conta como sucesso.
-  * Se um processo travar, interrompa-o e siga em frente; nao fique esperando.
-- Commits intermediarios: apos cada subetapa que compila, faca
-  `git add -A && git commit -m "WIP Marco N: <subetapa>"`. No fim do marco, faca o commit
-  final "Marco N". Assim uma sessao que cai nao perde trabalho.
-- Resumo final: no maximo 8 linhas, texto simples, em portugues, sem tabelas e sem
-  markdown. Nao repita arquivos inteiros nem saidas longas; use `| head` em comandos.
+Repositorio:
+~/projetos/redes2-inundacao
 
-## Ambiente e build
-- JDK 1.8.0_351 com JavaFX embutido (jre/lib/ext/jfxrt.jar), o mesmo do professor.
-  Confirme `javac -version` = 1.8.x antes de compilar. Nao use JDK mais novo.
-- Sem Maven/Gradle. Apenas build.sh e run.sh na raiz: build.sh compila todos os .java
-  com `javac -encoding UTF-8 -d build`; run.sh executa `java -cp build Principal`.
-  Nenhum caminho fixo.
-- Crie .gitignore com `build/` e `*.class`.
-- Codigo: apenas recursos do Java 8. Proibido: var, records, List.of/Map.of, text blocks,
-  switch expressions, String.isBlank/strip/repeat, Optional.isEmpty, module-info.java.
-- JavaFX: apenas APIs classicas (Pane, Circle, Line, Label, Button, ComboBox, Spinner,
-  Slider, CheckBox, TableView, MenuBar, Alert, AnimationTimer, Task).
+O projeto deve permanecer compativel com Java 8 e JavaFX 8.
 
-## Arquivo backbone.txt (raiz do projeto)
-- 1a linha: numero de nos, possivelmente com ';' final (ex.: "8;"): faca trim e remova
-  o ';'.
-- Demais linhas: NO1;NO2;PESO. Aresta nao direcionada, listada uma unica vez.
-- Ignore linhas em branco e espacos. Valide ids em [1..N]. Em caso de erro, mensagem clara.
-- Rotulos na GUI: 1->A, 2->B, ... (nos numericos internamente).
-- O backbone.txt de exemplo (grafo do Tanenbaum) tem exatamente, um item por linha:
-  8;
-  1;2;2
-  1;7;6
-  2;3;7
-  2;5;2
-  3;6;3
-  3;4;3
-  4;8;2
-  5;7;1
-  5;6;2
-  6;8;2
-  7;8;4
+Nao fazer grandes refatoracoes estruturais durante a fase final do
+trabalho.
 
-## Semantica da simulacao (decisoes fechadas)
-- Nucleo em TEMPO VIRTUAL: fila de eventos (PriorityQueue por instante de chegada, com
-  desempate FIFO). Sem Thread.sleep e sem uma thread por pacote/roteador.
-- Cada no tem uma lista de interfaces (links). Cada pacote carrega: id, messageId, TTL
-  e a interface pela qual chegou.
-- O id identifica uma copia individual. O messageId identifica a mensagem logica e e
-  compartilhado por todas as copias e encaminhamentos dessa mensagem.
-- O messageId deve ser atribuido uma unica vez na origem logica da simulacao e precisa
-  ser unico apenas dentro de cada execucao.
-- Inicio: o transmissor gera uma copia por interface (nas 4 versoes; nas 3 e 4 com TTL
-  inicial). Cada copia colocada em um link conta como 1 pacote gerado.
-- Na chegada de um pacote no no n no instante t:
-  1) Se o link foi desabilitado enquanto o pacote estava nele: descarte.
-  2) Se n e o receptor e ainda nao ha snapshot: registre snapshot (contador atual, t).
-  3) Pergunte a estrategia por quais interfaces reenviar; o receptor TAMBEM reencaminha.
-  4) Para cada copia enviada: contador++ e chegada agendada em
-     t + LatencyProvider.nextLatencyMs().
-- Versao 1: ignora TTL e envia por todas as interfaces.
-- Versao 2: todas menos a de chegada.
-- Versao 3: como a 2, e antes de reenviar faz ttl = ttl - 1; se ttl <= 0, descarta
-  (o TTL maximo equivale ao numero de saltos; a checagem de entrega vem antes do descarte).
-- Versao 4: como a 3, com deduplicacao por janela de tempo por no.
-  Cada no mantem o instante da ultima observacao de cada messageId.
-  Se uma copia chegar dentro da janela configurada, e descartada como duplicata.
-  Duplicatas nao renovam o registro.
-  A janela 0 equivale a V3.
-- Na V4, o registro feito na origem em t=0 conta como a primeira observacao daquela
-  mensagem naquele no.
-- Na V4, registros expirados podem ser removidos somente durante uma consulta.
-  Nao criar timers nem novos eventos para expiracao.
-- A V4 deve possuir uma instancia nova da estrategia em cada execucao. Estado de
-  deduplicacao nao pode ser compartilhado entre execucoes.
-- LatencyProvider.nextLatencyMs(): inteiro em [1, 500], chamado A CADA transmissao em um
-  link. Aceita semente opcional. O peso da aresta (metrica) NAO influencia a latencia.
-- TTL padrao = diametro do grafo em saltos (BFS), editavel na GUI.
-- Modo ao vivo (GUI): SEM limites, sem trava de seguranca e sem throttling. O professor
-  pediu que a versao 1 trave; a UI travando e o comportamento esperado. Nao adicione
-  protecoes.
-- A medida de interesse e o snapshot do contador na primeira chegada ao destino.
+Priorizar correcoes pequenas, verificaveis e diretamente relacionadas
+ao problema solicitado.
 
-## Arquitetura (MVC na raiz do projeto, sem pasta src)
-    Principal.java   main no pacote default; lanca a GUI
-    backbone.txt, build.sh, run.sh, .gitignore
-    model/       Node, Link, Graph, Packet, Simulator, ForwardingStrategy,
-                 Strategy1AllInterfaces, Strategy2ExceptIncoming, Strategy3Ttl,
-                 Strategy4Custom, LatencyProvider, RunResult
-    controller/  SimulationController, BatchRunner, StrategyFactory
-    view/        FloodingApp, GraphPane, ControlPanel, ResultsTable, AboutDialog
-    util/        BackboneLoader, ConsoleRunner, GraphInfo, WindowSweep
-    img/         so se houver arquivos de imagem (nao criar vazia)
-- Pacotes Java: model, controller, view, util (sem prefixo "flooding").
-- Dependencias: model nao depende de JavaFX, nem de controller, view ou util.
-  view usa model. controller coordena model e view. util so tem utilitarios, sem estado
-  de GUI, e pode usar model.
-- Simulator: pull-based, com `advanceTo(long virtualTimeMs)` e `inFlight()` para a GUI, e
-  `runUntilFirstArrival()` para o modo em lote. O limite do lote (ABORT_LIMIT = 2000000)
-  e constante do proprio Simulator e vale SO em `runUntilFirstArrival`.
-- ConsoleRunner (args: versao origem destino ttl semente) imprime os eventos e o
-  snapshot. Na V4, pode tambem informar o numero de duplicatas descartadas.
-- StrategyFactory cria as estrategias. A assinatura existente deve continuar valida.
-  Para a V4, deve existir suporte a informar janelaMs quando necessario.
-- WindowSweep (V4): utilitario de linha de comando para executar varias simulacoes da V4
-  com diferentes valores de janela e comparar os resultados.
-- `javac Principal.java` executado na raiz deve compilar o projeto da GUI.
 
-## GUI
-- Layout do grafo automatico, em circulo. Peso exibido em cada aresta.
-- ComboBox da versao (1..4), ComboBox de transmissor e de receptor, Spinner de TTL,
-  Slider de velocidade (0.25x a 10x, padrao 2x), botoes Iniciar / Pausar / Resetar.
-- Animacao por AnimationTimer: avanca o tempo virtual, chama advanceTo e desenha cada
-  pacote em transito interpolado ao longo do link, com o valor do TTL ao lado (nas versoes
-  1 e 2, sem TTL). Transmissor em verde, receptor em azul.
-- Contador ao vivo e o valor do snapshot na primeira chegada, em destaque.
-- Clique em uma aresta alterna habilitada/desabilitada (tracejada em vermelho quando
-  desabilitada). Links desabilitados nao transmitem.
-- Tabela de resultados por versao: ultima execucao, n, media, desvio-padrao.
-- Modo lote: "Executar N vezes" (padrao 30) em Task de fundo, sem animacao, semente
-  base + i, parando na primeira chegada ou quando a fila esvaziar (destino inalcançavel)
-  ou ao atingir ABORT_LIMIT (marcar como "abortada" e excluir da media).
-- Menu Arquivo (Recarregar backbone, Sair) e Ajuda > Sobre. O Sobre mostra a documentacao
-  da Opcao 4 a partir de uma constante de texto com a explicacao da deduplicacao por janela.
+# COMPILACAO
 
-## Padronizacao de codigo (exigida pelo professor; vale para TODO arquivo)
-- Cabecalho em TODO .java, na primeira linha, exatamente neste formato:
-    /* ***************************************************************
-    * Autor............: Juan Prado Da Silva
-    * Matricula........: 202310291
-    * Inicio...........: 01/10/2026
-    * Ultima alteracao.: dd/mm/aaaa
-    * Nome.............: nome do arquivo/classe
-    * Funcao...........: descricao do que a classe faz
-    *************************************************************** */
-  Arquivo novo: Inicio e Ultima alteracao = data de hoje (`date +%d/%m/%Y`).
-  Ao editar um arquivo, atualize Ultima alteracao para hoje.
-- Antes de TODO metodo/construtor, este bloco (formato do professor):
-    /* ***************************************************************
-    * Metodo: nome do metodo
-    * Funcao: o que faz
-    * Parametros: descricao dos parametros (ou: nenhum)
-    * Retorno: descricao do valor retornado (ou: void)
-    *************************************************************** */
-- Indentacao: 2 ESPACOS, nunca tab. Chaves no estilo K&R, com este formato de else:
-    if (condicao) { //comentario curto
-      ...
-    }//fim do if
-    else {
-      ...
-    }//fim do else
-  Comente o fechamento de if/else/for/while/switch/metodo/classe:
-  `}//fim do metodo nomeDoMetodo`, `}//fim da classe NomeDaClasse`.
-- Sempre usar chaves em if/for/while, mesmo com uma unica instrucao.
-- Linhas com no maximo 80 colunas. Ao quebrar: depois de virgula ou antes de operador,
-  continuacao com 4 espacos.
-- SEM ACENTOS em comentarios E em Strings da interface (use "Ultima execucao",
-  "Versao", etc.), inclusive no nome do autor do cabecalho.
-- Nomes (convencoes da Oracle): classes em PascalCase sem espacos; metodos e variaveis
-  em camelCase, sem abreviar sem necessidade (acronimos como ttl ou ip em minusculo);
-  constantes em MAIUSCULAS_COM_UNDERSCORE (static final); uma declaracao por linha.
-  Ordem na classe: constantes/campos estaticos, campos de instancia, construtores,
-  metodos agrupados por funcao.
-- Comentarios em portugues sem acento, curtos e uteis (ex.: `//eh o destino`).
-- Toda alteracao de codigo nesta reta final deve preservar V1, V2 e V3, salvo quando o
-  pedido declarar explicitamente uma mudanca de compatibilidade.
+A compilacao principal deve funcionar com:
 
-## Marcos
-- Marco 0 (concluido): Ambiente, build.sh, run.sh e hello world JavaFX.
-- Marco 1 (concluido): Modelo + loader + backbone.txt + BFS (diametro) + GraphInfo.
-- Marco 2 (concluido): Nucleo de simulacao, 4 estrategias, LatencyProvider,
-  ConsoleRunner. A V4 era stub nesta etapa.
-- Marco 1.5: Migracao MVC + padronizacao dos arquivos existentes. Estrutural: NAO altere
-  semantica nem comportamento (algoritmos, TTL, contador, latencia, tempo virtual,
-  ConsoleRunner, backbone).
-  * ANTES de mover qualquer arquivo: compile com ./build.sh, rode o ConsoleRunner
-    (versao 3, origem 1, destino 4, TTL 3, semente 42) e salve a saida em /tmp/antes.txt.
-  * Mova os arquivos de src/flooding para a estrutura da secao Arquitetura, ajuste
-    package e imports, crie Principal.java, remova a dependencia de src/, atualize
-    build.sh e run.sh, crie .gitignore.
-  * Aplique cabecalho, blocos de metodo, chaves comentadas, 2 espacos, 80 colunas e
-    remocao de acentos em todos os arquivos.
-  * DEPOIS: rode o mesmo ConsoleRunner, compare com diff com /tmp/antes.txt e corrija
-    ate ficar identico. Commit "Marco 1.5". Nao avance para o Marco 3.
-- Marco 3: GUI com grafo, controles, animacao, contador e TTL.
-- Marco 4: Link desabilitavel, tabela de resultados, modo lote, Sobre, ARCHITECTURE.md
-  (max. 1 pagina: fluxo de um pacote) e README com instrucoes de execucao.
-- Reta final antes do Marco 5:
-  * Implementar a V4 de verdade conforme a especificacao de deduplicacao por janela.
-  * Modernizar a GUI sem alterar a semantica dos algoritmos.
-  * Adicionar somente funcionalidades pequenas e uteis que tenham sido explicitamente
-    pedidas.
-  * Preservar e testar V1, V2 e V3 antes de avancar.
-- Marco 5: Validacao final e entrega.
-  * Crie check_style.sh na raiz que verifique em todos os .java: cabecalho no formato,
-    nenhum tab, nenhum caractere nao-ASCII, indentacao multipla de 2, linhas de ate 80
-    colunas, bloco de metodo antes de cada metodo, comentario de fechamento nos blocos.
-  * NAO faca uma nova refatoracao arquitetural neste marco.
-  * Corrija somente problemas necessarios para passar a validacao final.
-  * Defina Inicio e Ultima alteracao de cada arquivo pelas datas do git.
-  * Confirme que build.sh e `javac Principal.java` compilam do zero.
-  * Confirme que nao existem arquivos `.class` fora de `build/`.
-  * Rode os testes finais e verifique o conteudo do pacote de entrega.
-  * Commit final "Marco 5".
+javac Principal.java
 
-## Prompts curtos (regras fixas para TODO pedido)
-- Siga a secao Padronizacao: cabecalho unico, bloco de metodo, 2 espacos, sem acento,
-  80 colunas.
-- Use sempre timeout nos processos java; nunca abra a GUI em primeiro plano.
-- Edite SOMENTE os arquivos citados no pedido; nao reescreva arquivos inteiros sem
-  necessidade.
-- Mudancas em Simulator e ForwardingStrategy devem ser MINIMAS quando o pedido nao
-  exigir alteracao estrutural nesses arquivos.
-- Preserve V1, V2 e V3 quando o pedido for sobre V4 ou GUI, salvo se houver uma
-  incompatibilidade explicitamente especificada.
-- Nao invente requisitos, funcionalidades ou otimizacoes que nao estejam no pedido.
-- Ao terminar: ./build.sh, execute os testes solicitados, faca o commit com a mensagem
-  indicada e resumo de ate 5 linhas em texto simples.
-- Se algo nao compilar apos 2 tentativas, pare e mostre o erro; nao improvise outra
-  arquitetura.
+Tambem deve funcionar:
+
+./build.sh
+
+A execucao grafica:
+
+./run.sh
+
+Java alvo:
+
+1.8
+
+Nao utilizar APIs exclusivas de versoes posteriores do Java.
+
+
+# CONVENCOES DE CODIGO
+
+Cabecalho obrigatorio nos arquivos Java conforme o padrao definido
+pelo professor.
+
+Comentarios em portugues sem acentos.
+
+Indentacao de 2 espacos.
+
+Nao utilizar tabs.
+
+Braces no estilo K&R.
+
+Sempre utilizar braces em estruturas de controle.
+
+Manter linhas preferencialmente com no maximo 80 colunas.
+
+Seguir convencoes de nomes Java.
+
+Nao introduzir dependencias externas desnecessarias.
+
+
+# VALIDACAO OBRIGATORIA
+
+Depois de qualquer alteracao relevante:
+
+1. Compilar.
+2. Verificar erros de compilacao.
+3. Executar os testes relevantes.
+4. Verificar git diff --check.
+5. Verificar se nao foram criados .class fora de build/.
+6. Verificar se o comportamento existente nao foi alterado sem motivo.
+
+Antes de considerar uma tarefa concluida:
+
+find . -name '*.class' -not -path './build/*' -print
+
+deve retornar vazio.
+
+
+# ARQUITETURA
+
+Fluxo principal:
+
+Principal
+  -> FloodingApp
+  -> componentes da View
+  -> SimulationController
+  -> Simulator
+  -> ForwardingStrategy
+
+FloodingApp e responsavel por montar a interface.
+
+FloodingApp NAO controla a simulacao.
+
+SimulationController e o controlador da interface grafica e possui o
+AnimationTimer.
+
+ControlPanel envia comandos ao SimulationController por callbacks.
+
+GraphPane exibe o grafo e os pacotes.
+
+ResultsTable exibe os resultados.
+
+EventLogPane exibe eventos.
+
+Simulator possui a logica do simulador.
+
+As estrategias implementam ForwardingStrategy.
+
+
+# VIEW
+
+Componentes principais:
+
+view/FloodingApp.java
+view/ControlPanel.java
+view/GraphPane.java
+view/ResultsTable.java
+view/EventLogPane.java
+view/AboutDialog.java
+view/Theme.java
+
+FloodingApp deve apenas compor e iniciar a interface.
+
+O tema deve ser aplicado utilizando:
+
+Theme.apply(scene)
+
+Nao adicionar dependencia de /theme.css se esse arquivo nao existir.
+
+
+# CONTROLLER
+
+SimulationController possui:
+
+- AnimationTimer;
+- ciclo de vida da simulacao;
+- Start;
+- Pause;
+- Step;
+- Reset;
+- atualizacao da View;
+- controle do tempo virtual;
+- log;
+- execucao de batch solicitada pela GUI.
+
+Nao criar um segundo AnimationTimer dentro de FloodingApp.
+
+Nao duplicar a logica de Start/Pause/Step/Reset em FloodingApp.
+
+
+# MODELO
+
+Classes principais:
+
+model/Graph.java
+model/Node.java
+model/Link.java
+model/Packet.java
+model/Simulator.java
+model/RunResult.java
+
+O Simulator e independente da GUI.
+
+A GUI nao deve implementar regras de encaminhamento.
+
+
+# EVENTOS
+
+A simulacao utiliza tempo virtual.
+
+Eventos sao processados em ordem de tempo.
+
+Eventos com o mesmo instante devem preservar a ordem FIFO.
+
+Latencia de transmissao:
+
+1..500 ms
+
+O peso do enlace nao e a latencia.
+
+
+# PACOTES
+
+Packet possui identidade da copia:
+
+id
+
+e identidade da mensagem logica:
+
+messageId
+
+Cada copia encaminhada possui seu proprio id.
+
+Copias da mesma mensagem logica possuem o mesmo messageId.
+
+messageId e obrigatorio para a deduplicacao da V4.
+
+
+# DIRECAO DOS PACOTES NA GUI
+
+O evento de voo deve preservar o no de origem da transmissao:
+
+fromNode
+
+GraphPane deve usar fromNode para determinar a direcao visual.
+
+Nao tentar recuperar a origem usando IdentityHashMap baseado na
+instancia de Packet.
+
+Nao usar fallback arbitrario para link.getA().
+
+
+# ESTRATEGIAS
+
+V1:
+- encaminha por todas as interfaces;
+- ignora TTL.
+
+V2:
+- encaminha por todas as interfaces exceto a interface de entrada.
+
+V3:
+- utiliza comportamento da V2;
+- decrementa TTL antes de encaminhar;
+- entrega no destino deve ser reconhecida antes do descarte por TTL.
+
+V4:
+- utiliza comportamento da V3;
+- adiciona deduplicacao temporal por no.
+
+
+# TTL
+
+O TTL padrao pode ser derivado do diametro do grafo.
+
+V3 e V4 devem respeitar TTL.
+
+V1 nao deve depender de TTL para limitar o encaminhamento.
+
+
+# ENTREGA
+
+Ao chegar ao destino:
+
+1. verificar se o enlace esta habilitado;
+2. registrar a primeira chegada como snapshot quando aplicavel;
+3. permitir que a estrategia decida o encaminhamento posterior;
+4. processar as copias encaminhadas normalmente.
+
+Snapshot representa o contador de pacotes observado na primeira
+chegada ao destino.
+
+
+# V4 - DEDUPLICACAO TEMPORAL
+
+V4 possui:
+
+windowMs
+
+Valor padrao:
+
+1000 ms
+
+A deduplicacao e mantida por no.
+
+Estrutura conceitual:
+
+Map<messageId, instanteVisto>
+
+Uma mensagem e duplicada quando:
+
+(t - instanteVisto) < windowMs
+
+Duplicata:
+
+- nao e encaminhada;
+- nao renova instanteVisto.
+
+Entradas expiradas sao removidas somente durante consultas.
+
+Nao criar timers/eventos especificos para expiracao.
+
+A origem registra a mensagem no instante 0.
+
+Cada execucao deve possuir uma nova instancia da Strategy4Custom.
+
+
+# V4 - WINDOW 0
+
+windowMs = 0 deve ser equivalente a V3.
+
+Nao alterar V3 para implementar V4.
+
+V4 deve encapsular a logica adicional de deduplicacao.
+
+
+# FACTORY
+
+StrategyFactory deve possuir suporte para:
+
+V1
+V2
+V3
+V4
+
+e overload de V4 com windowMs.
+
+
+# WINDOW SWEEP
+
+WindowSweep deve testar:
+
+0
+250
+500
+1000
+1500
+2000
+5000
+
+O sweep serve para comparar o efeito da janela temporal da V4.
+
+
+# BATCH
+
+BatchRunner executa varias simulacoes.
+
+BatchConsole permite execucao em console.
+
+Resultados podem incluir:
+
+- media;
+- desvio padrao;
+- quantidade de execucoes validas;
+- snapshot;
+- quantidade de pacotes;
+- duplicatas na V4.
+
+
+# DETERMINISMO
+
+A seed deve permitir reproducibilidade.
+
+Nao alterar a ordem das chamadas ao gerador aleatorio sem necessidade.
+
+Alteracoes na ordem de eventos ou transmisssoes podem alterar a
+sequencia pseudoaleatoria e, portanto, os resultados.
+
+Ao alterar o Simulator, comparar os resultados antes/depois.
+
+
+# TESTES MINIMOS
+
+Depois de alterar o codigo:
+
+1. ./build.sh
+
+2. Verificar ausencia de .class fora de build/.
+
+3. Executar uma simulacao V1.
+
+4. Executar V2.
+
+5. Executar V3.
+
+6. Executar V4.
+
+7. Comparar V3 com V4(window=0).
+
+8. Se a alteracao envolver GUI, executar ./run.sh.
+
+9. Testar:
+   Start
+   Pause
+   Start
+   Step
+   Reset
+   Start novamente.
+
+10. Se a alteracao envolver pacotes/GraphPane, verificar a direcao
+    visual dos pacotes.
+
+
+# TESTES DE REGRESSAO
+
+Um baseline conhecido do projeto:
+
+V3
+seed 42
+snapshot 8
+tempo 296 ms
+
+Esse valor pode ser utilizado como verificacao de regressao quando as
+condicoes da simulacao forem exatamente as mesmas.
+
+Nao assumir que o valor permanece igual depois de uma alteracao
+intencional na logica de eventos.
+
+
+# GIT
+
+Antes de alterar:
+
+git status
+
+Depois de alterar:
+
+git diff --check
+git status
+
+Nao adicionar arquivos gerados.
+
+Nao adicionar:
+
+.class
+build/
+arquivos temporarios
+logs temporarios
+
+
+# DOCUMENTACAO
+
+ARCHITECTURE.md deve descrever o codigo atual.
+
+Se a arquitetura mudar, atualizar ARCHITECTURE.md na mesma tarefa.
+
+Nao documentar uma arquitetura hipotetica.
+
+Nao manter descricoes antigas que contradigam o codigo.
+
+
+# REGRAS PARA AGENTES
+
+Antes de modificar codigo:
+
+1. Ler os arquivos diretamente envolvidos.
+2. Entender as interfaces existentes.
+3. Fazer a menor alteracao que resolva o problema.
+4. Nao refatorar arquivos nao relacionados.
+5. Nao alterar comportamento de simulacao sem autorizacao explicita.
+
+Depois da alteracao:
+
+1. Compilar.
+2. Testar.
+3. Mostrar exatamente quais arquivos foram alterados.
+4. Informar resultados dos testes.
+5. Nao afirmar que algo foi testado se nao foi.
+
+
+# FASE FINAL
+
+O projeto esta em fase de finalizacao.
+
+Prioridade:
+
+1. Compilacao.
+2. Execucao.
+3. Correcao funcional.
+4. Regressao.
+5. GUI.
+6. Documentacao.
+7. Limpeza.
+8. Empacotamento para entrega.
+
+Nao iniciar grandes refatoracoes.
+
+Nao trocar arquitetura apenas por preferencia estetica.
+
+Nao substituir componentes funcionais sem necessidade.
+
+
+# PROFESSOR / ENTREGA
+
+Preservar as exigencias definidas pelo professor.
+
+Antes da entrega:
+
+- compilar com Java 8;
+- remover .class fora de build/;
+- revisar README.md;
+- revisar ARCHITECTURE.md;
+- verificar backbone.txt;
+- verificar build.sh;
+- verificar run.sh;
+- verificar sources.txt;
+- verificar git status;
+- executar git diff --check;
+- confirmar que nenhum arquivo temporario esta sendo entregue.
+
+## Revamp visual (temporario; so camada view e Theme)
+Objetivo: GUI de engenharia, estetica de cartografia industrial brutalista (painel de
+maquina pesada/mineracao). Prioridade: 1) o professor entender a simulacao, 2) legibilidade
+e UX, 3) desempenho, 4) estetica. Sem gradientes, neon, sombras decorativas nem excesso de
+cards.
+- NAO altere model/ nem util/. No controller, SOMENTE as chamadas mecanicas pedidas.
+  Preserve todos os metodos publicos, controles, paineis e funcoes existentes, e o
+  comportamento da simulacao.
+- Sem arquivo CSS externo: use view/Theme.java (constantes) e setStyle. Sem fontes
+  externas: Font.font("Monospaced", ...). Texto da interface sem acentos; titulos em
+  CAIXA ALTA.
+- Paleta (Gruvbox escuro): fundo #1d2021; paineis #282828; cabecalhos/zebra #3c3836;
+  bordas #504945; inativo #665c54; texto #ebdbb2; secundario #a89984; amarelo-sujo
+  #d79921 (valores); laranja queimado #d65d0e (preenchimentos) e #fe8019 (texto/linhas
+  finas) = UNICO destaque; vermelho #fb4934 SOMENTE para erros. Transmissor #98971a e
+  receptor #458588, sempre com etiqueta TX/RX.
+- Texto >= 12 px; contraste alto; bordas retas de 1 px, sem cantos arredondados.
+- Desempenho: pacotes em UM Canvas (sem no JavaFX por pacote); rotulo de TTL apenas com
+  ate 150 pacotes em transito. NAO adicione limites nem protecoes.
+- Verifique cada passo com ./build.sh e `timeout 8 ./run.sh`.

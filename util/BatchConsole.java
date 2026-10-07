@@ -12,7 +12,6 @@ package util;
 
 import controller.BatchResult;
 import controller.BatchRunner;
-import controller.StrategyFactory;
 import java.nio.file.Paths;
 import model.Graph;
 

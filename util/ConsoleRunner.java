@@ -20,7 +20,6 @@ import model.Strategy2ExceptIncoming;
 import model.Strategy3Ttl;
 import model.Strategy4Custom;
 import model.Simulator;
-import controller.StrategyFactory;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;

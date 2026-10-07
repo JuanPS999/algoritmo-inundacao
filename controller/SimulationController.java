@@ -15,12 +15,10 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
-import java.util.Random;
 import java.util.function.Consumer;
 import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
-import model.ForwardingStrategy;
 import model.LatencyProvider;
 import model.Link;
 import model.Packet;
@@ -257,21 +255,6 @@ public class SimulationController {
                 StrategyFactory.create(version, windowMs),
                 new LatencyProvider(seed), sourceId, destinationId,
                 controlPanel.getTtl());
-        simulator.setListener(new Simulator.Listener() {
-            @Override
-            public void onTransmit(long time, int fromNode, Link link,
-                    Packet packet, long counter) {
-                // nao necessario; direcao vem de InFlight.fromNode
-            }//fim do metodo onTransmit
-
-            @Override
-            public void onArrive(long time, int nodeId, Link link,
-                    Packet packet, long counter) {
-                // nao necessario
-            }//fim do metodo onArrive
-        });//fim da classe anonima Listener
-
-        // Novo listener para log detalhado
         simulator.setListener(new SimulationListener() {
             @Override
             public void onSend(long time, int fromNode, Link link,
@@ -309,8 +292,7 @@ public class SimulationController {
         graphPane.setDestinationReached(false);
         graphPane.clearPackets();
         controlPanel.resetDisplay();
-        controlPanel.setRunning(true);
-        controlPanel.setPaused(false);
+        controlPanel.setEstado(view.ControlPanel.EstadoSimulacao.RODANDO);
         controlPanel.setStatus("Simulacao em andamento.");
         simulator.start();
         refreshView();
@@ -378,14 +360,13 @@ public class SimulationController {
             graphPane.setDestinationReached(false);
             graphPane.clearPackets();
             controlPanel.resetDisplay();
-            controlPanel.setRunning(true);
-            controlPanel.setPaused(true);
+            controlPanel.setEstado(view.ControlPanel.EstadoSimulacao.PAUSADO);
             controlPanel.setStatus("Modo passo a passo. Clique 'Proximo evento' para avancar.");
         }
         // pausa o timer se estiver rodando
         timer.stop();
         paused = true;
-        controlPanel.setPaused(true);
+        controlPanel.setEstado(view.ControlPanel.EstadoSimulacao.PAUSADO);
         // avanca ate o proximo evento
         long nextTime = simulator.peekNextTime();
         if (nextTime != Long.MAX_VALUE) {
@@ -412,7 +393,13 @@ public class SimulationController {
         }//fim do if
         paused = !paused;
         lastFrameNanos = 0L;
-        controlPanel.setPaused(paused);
+        if (paused) {
+            timer.stop();
+        } else {
+            timer.start();
+        }
+        controlPanel.setEstado(paused ? view.ControlPanel.EstadoSimulacao.PAUSADO
+                : view.ControlPanel.EstadoSimulacao.RODANDO);
         controlPanel.setStatus(paused ? "Pausado." : "Simulacao em andamento.");
     }//fim do metodo togglePause
 
@@ -432,8 +419,6 @@ public class SimulationController {
         graphPane.clearPackets();
         graphPane.setDestinationReached(false);
         controlPanel.resetDisplay();
-        controlPanel.setRunning(false);
-        controlPanel.setPaused(false);
         controlPanel.setStatus("Pronto.");
         controlPanel.setNextEventTime(Long.MAX_VALUE);
     }//fim do metodo reset
@@ -582,7 +567,7 @@ public class SimulationController {
         }//fim do if
         if (flights.isEmpty()) {
             timer.stop();
-            controlPanel.setRunning(false);
+            controlPanel.setEstado(view.ControlPanel.EstadoSimulacao.ENCERRADO);
             if (snapshotShown) {
                 controlPanel.setStatus("Encerrada: nao ha mais pacotes na rede.");
             } else {
@@ -613,7 +598,7 @@ public class SimulationController {
             return;
         }
 
-        controlPanel.setRunning(true);
+        controlPanel.setEstado(view.ControlPanel.EstadoSimulacao.LOTE);
         controlPanel.setStatus("Executando lote...");
         controlPanel.setBatchProgress(0, count);
 
@@ -657,19 +642,19 @@ public class SimulationController {
 
             @Override
             protected void succeeded() {
-                controlPanel.setRunning(false);
+                controlPanel.setEstado(view.ControlPanel.EstadoSimulacao.OCIOSO);
                 controlPanel.setStatus("Lote concluido.");
             }
 
             @Override
             protected void failed() {
-                controlPanel.setRunning(false);
+                controlPanel.setEstado(view.ControlPanel.EstadoSimulacao.OCIOSO);
                 controlPanel.setStatus("Erro no lote: " + getException().getMessage());
             }
 
             @Override
             protected void cancelled() {
-                controlPanel.setRunning(false);
+                controlPanel.setEstado(view.ControlPanel.EstadoSimulacao.OCIOSO);
                 controlPanel.setStatus("Lote cancelado.");
             }
         };

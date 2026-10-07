@@ -9,10 +9,8 @@
 package view;
 
 import controller.SimulationController;
-import java.util.function.Consumer;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
@@ -27,14 +25,21 @@ import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
-import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.util.StringConverter;
 import model.Graph;
+import model.RunResult;
+import util.NodeLabelUtil;
 
 public class ControlPanel extends VBox {
   private SimulationController controller;
   private final Graph graph;
+
+  // Estado da simulacao para controle centralizado dos botoes
+  public enum EstadoSimulacao {
+    OCIOSO, RODANDO, PAUSADO, ENCERRADO, LOTE
+  }
+  private EstadoSimulacao estadoAtual = EstadoSimulacao.OCIOSO;
 
   private ComboBox<Integer> versionCombo;
   private ComboBox<Integer> sourceCombo;
@@ -184,6 +189,17 @@ public class ControlPanel extends VBox {
     }
     sourceCombo.setValue(1);
     sourceCombo.setMaxWidth(Double.MAX_VALUE);
+    sourceCombo.setConverter(new StringConverter<Integer>() {
+      @Override
+      public String toString(Integer id) {
+        return id == null ? "" : NodeLabelUtil.toLabel(id);
+      }
+
+      @Override
+      public Integer fromString(String s) {
+        return NodeLabelUtil.fromLabel(s);
+      }
+    });
     sourceCombo.setOnAction(e -> controller.onSourceChanged(sourceCombo.getValue()));
 
     // Destino
@@ -195,6 +211,17 @@ public class ControlPanel extends VBox {
     }
     targetCombo.setValue(graph.getNodeCount());
     targetCombo.setMaxWidth(Double.MAX_VALUE);
+    targetCombo.setConverter(new StringConverter<Integer>() {
+      @Override
+      public String toString(Integer id) {
+        return id == null ? "" : NodeLabelUtil.toLabel(id);
+      }
+
+      @Override
+      public Integer fromString(String s) {
+        return NodeLabelUtil.fromLabel(s);
+      }
+    });
     targetCombo.setOnAction(e -> controller.onTargetChanged(targetCombo.getValue()));
 
     // TTL
@@ -634,32 +661,64 @@ public class ControlPanel extends VBox {
   }
 
   /* ***************************************************************
+  * Metodo: setEstado
+  * Funcao: Define o estado da simulacao e atualiza os botoes.
+  * Parametros: estado - novo estado
+  * Retorno: void
+  *************************************************************** */
+  public void setEstado(EstadoSimulacao estado) {
+    this.estadoAtual = estado;
+    atualizarBotoes();
+  }
+
+  /* ***************************************************************
+  * Metodo: getEstado
+  * Funcao: Retorna o estado atual da simulacao.
+  * Parametros: nenhum
+  * Retorno: EstadoSimulacao - estado atual
+  *************************************************************** */
+  public EstadoSimulacao getEstado() {
+    return estadoAtual;
+  }
+
+  /* ***************************************************************
   * Metodo: setRunning
-  * Funcao: Atualiza estado dos botoes para executando/pausado
+  * Funcao: Atualiza estado dos botoes para executando/pausado (compatibilidade).
+  *         DEPRECADO: use setEstado().
   * Parametros: running - true se executando, false se pausado
   * Retorno: void
   *************************************************************** */
   public void setRunning(boolean running) {
-    startBtn.setDisable(running);
-    pauseBtn.setDisable(!running);
-    stepBtn.setDisable(running);
-    resetBtn.setDisable(false);
+    if (running) {
+      setEstado(EstadoSimulacao.RODANDO);
+    } else {
+      // Se nao estava rodando, volta para ocioso ou encerrado
+      if (estadoAtual == EstadoSimulacao.RODANDO) {
+        setEstado(EstadoSimulacao.ENCERRADO);
+      }
+    }
   }
 
   /* ***************************************************************
   * Metodo: setPaused
-  * Funcao: Atualiza estado pausado dos botoes
+  * Funcao: Atualiza estado pausado dos botoes (compatibilidade).
+  *         DEPRECADO: use setEstado().
   * Parametros: paused - true se pausado
   * Retorno: void
   *************************************************************** */
   public void setPaused(boolean paused) {
-    pauseBtn.setDisable(paused || startBtn.isDisable());
-    stepBtn.setDisable(!paused || startBtn.isDisable());
+    if (paused) {
+      setEstado(EstadoSimulacao.PAUSADO);
+    } else {
+      if (estadoAtual == EstadoSimulacao.PAUSADO) {
+        setEstado(EstadoSimulacao.RODANDO);
+      }
+    }
   }
 
   /* ***************************************************************
   * Metodo: resetDisplay
-  * Funcao: Reseta a exibicao dos contadores e botoes
+  * Funcao: Reseta a exibicao dos contadores e botoes.
   * Parametros: nenhum
   * Retorno: void
   *************************************************************** */
@@ -671,20 +730,101 @@ public class ControlPanel extends VBox {
       overlayFinishedLabel.setVisible(false);
       overlayFinishedLabel.setManaged(false);
     }
-    startBtn.setDisable(false);
-    pauseBtn.setDisable(true);
-    stepBtn.setDisable(true);
-    resetBtn.setDisable(false);
+    setEstado(EstadoSimulacao.OCIOSO);
+  }
+
+  /* ***************************************************************
+  * Metodo: updateCounters
+  * Funcao: Atualiza contadores de pacotes e snapshot (compatibilidade com FloodingApp antigo).
+  * Parametros: generatedCount - pacotes gerados; snapshotCounter - valor do snapshot
+  * Retorno: void
+  *************************************************************** */
+  public void updateCounters(long generatedCount, long snapshotCounter) {
+    setCounter(generatedCount);
+    if (snapshotCounter > 0) {
+      showSnapshot(snapshotCounter, 0);
+    }
+  }
+
+  /* ***************************************************************
+  * Metodo: onSimulationEnded
+  * Funcao: Notifica fim de simulacao com resultado (compatibilidade).
+  * Parametros: result - resultado da execucao
+  * Retorno: void
+  *************************************************************** */
+  public void onSimulationEnded(RunResult result) {
+    if (result != null && result.isReached()) {
+      setStatus("Encerrada: destino atingido. Snapshot = " + result.getSnapshotCounter());
+    } else {
+      setStatus("Encerrada sem atingir o destino (rede esvaziou).");
+    }
+  }
+
+  /* ***************************************************************
+  * Metodo: reset
+  * Funcao: Alias para resetDisplay (compatibilidade com FloodingApp antigo).
+  * Parametros: nenhum
+  * Retorno: void
+  *************************************************************** */
+  public void reset() {
+    resetDisplay();
   }
 
   /* ***************************************************************
   * Metodo: setBatchProgress
-  * Funcao: Atualiza progresso do lote (compatibilidade)
+  * Funcao: Atualiza progresso do lote (compatibilidade).
   * Parametros: current - atual; total - total
   * Retorno: void
   *************************************************************** */
   public void setBatchProgress(int current, int total) {
     // No-op para compatibilidade
+  }
+
+  /* ***************************************************************
+  * Metodo: atualizarBotoes
+  * Funcao: Atualiza o estado dos botoes com base no estado explicito
+  *         da simulacao.
+  * Parametros: nenhum
+  * Retorno: void
+  *************************************************************** */
+  private void atualizarBotoes() {
+    switch (estadoAtual) {
+      case OCIOSO:
+        startBtn.setDisable(false);
+        pauseBtn.setDisable(true);
+        pauseBtn.setText("Pausar");
+        resetBtn.setDisable(true);
+        stepBtn.setDisable(false);
+        break;
+      case RODANDO:
+        startBtn.setDisable(true);
+        pauseBtn.setDisable(false);
+        pauseBtn.setText("Pausar");
+        resetBtn.setDisable(false);
+        stepBtn.setDisable(true);
+        break;
+      case PAUSADO:
+        startBtn.setDisable(true);
+        pauseBtn.setDisable(false);
+        pauseBtn.setText("Continuar");
+        resetBtn.setDisable(false);
+        stepBtn.setDisable(false);
+        break;
+      case ENCERRADO:
+        startBtn.setDisable(false);
+        pauseBtn.setDisable(true);
+        pauseBtn.setText("Pausar");
+        resetBtn.setDisable(false);
+        stepBtn.setDisable(true);
+        break;
+      case LOTE:
+        startBtn.setDisable(true);
+        pauseBtn.setDisable(true);
+        pauseBtn.setText("Pausar");
+        resetBtn.setDisable(true);
+        stepBtn.setDisable(true);
+        break;
+    }
   }
 
   /* ***************************************************************
