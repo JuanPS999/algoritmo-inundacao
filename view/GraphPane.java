@@ -33,14 +33,17 @@ import model.Simulator;
 
 public class GraphPane extends Pane {
 
-    private static final double NODE_RADIUS = 24.0;
     private static final double PACKET_RADIUS = 6.0;
     private static final double MARGIN = 50.0;
     private static final double HIT_WIDTH = 16.0;
-    private static final double HEX_R = NODE_RADIUS;
-    private static final double HEX_FLAT = HEX_R * Math.sqrt(3) / 2.0;
     private static final double GRID_SIZE = 40.0;
     private static final double HEX_GAP = 8.0; // espaco minimo entre hexagonos
+
+    // Limites de raio do hexagono
+    private static final double HEX_R_MIN = 18.0;
+    private static final double HEX_R_MAX = 32.0;
+    private static final double LABEL_MIN_SIZE = 14.0;
+    private static final double LABEL_MAX_SIZE = 20.0;
 
     private Graph graph;
     private final Canvas bgCanvas = new Canvas();
@@ -49,6 +52,8 @@ public class GraphPane extends Pane {
     private final Group packetsLayer = new Group();
     private double[] nodeX = new double[0];
     private double[] nodeY = new double[0];
+    private double currentHexR = 24.0;
+    private double currentLabelSize = 16.0;
     private int sourceId = 0;
     private int destinationId = 0;
     private boolean destinationReached = false;
@@ -188,6 +193,7 @@ public class GraphPane extends Pane {
     /* ***************************************************************
     * Metodo: computeLayout
     * Funcao: posiciona os nos em circulo, centralizados no painel.
+    *         Calcula raio do hexagono e fonte proporcionais ao tamanho.
     * Parametros: nenhum
     * Retorno: void
     *************************************************************** */
@@ -198,6 +204,9 @@ public class GraphPane extends Pane {
         double centerX = getWidth() / 2.0;
         double centerY = getHeight() / 2.0;
 
+        // Raio disponivel para o circulo dos nos
+        double availableRadius = Math.min(getWidth(), getHeight()) / 2.0 - MARGIN;
+
         // Raio minimo para que hexagonos nao se sobreponham
         // Distancia entre centros adjacentes = 2 * R * sin(pi/n)
         // Deve ser >= 2 * HEX_R + HEX_GAP
@@ -206,16 +215,27 @@ public class GraphPane extends Pane {
             minRadiusForNodes = 0;
         } else {
             double angleBetween = Math.PI / count;
-            minRadiusForNodes = (HEX_R + HEX_GAP / 2.0) / Math.sin(angleBetween);
+            // Usamos HEX_R_MAX como estimativa inicial para calcular o minimo
+            minRadiusForNodes = (HEX_R_MAX + HEX_GAP / 2.0) / Math.sin(angleBetween);
         }
 
-        double availableRadius = Math.min(getWidth(), getHeight()) / 2.0 - NODE_RADIUS - MARGIN;
-        double radius = Math.max(availableRadius, minRadiusForNodes);
+        double layoutRadius = Math.max(availableRadius, minRadiusForNodes);
+
+        // Calcula raio do hexagono proporcional ao raio do layout
+        // Quanto maior o layout, maior o hexagono (ate HEX_R_MAX)
+        if (layoutRadius > 0) {
+            double ratio = Math.min(1.0, layoutRadius / 300.0); // 300 = referencia
+            currentHexR = HEX_R_MIN + (HEX_R_MAX - HEX_R_MIN) * ratio;
+            currentLabelSize = LABEL_MIN_SIZE + (LABEL_MAX_SIZE - LABEL_MIN_SIZE) * ratio;
+        } else {
+            currentHexR = HEX_R_MIN;
+            currentLabelSize = LABEL_MIN_SIZE;
+        }
 
         for (int i = 0; i < count; i++) {
             double angle = 2.0 * Math.PI * i / count - Math.PI / 2.0;
-            nodeX[i] = centerX + radius * Math.cos(angle);
-            nodeY[i] = centerY + radius * Math.sin(angle);
+            nodeX[i] = centerX + layoutRadius * Math.cos(angle);
+            nodeY[i] = centerY + layoutRadius * Math.sin(angle);
         }
     }//fim do metodo computeLayout
 
@@ -254,47 +274,50 @@ public class GraphPane extends Pane {
         gc.strokeLine(cx, cy + s, cx, cy - s);
         gc.strokeLine(cx, cy - s, cx - s / 2.0, cy - s / 2.0);
         gc.strokeLine(cx, cy - s, cx + s / 2.0, cy - s / 2.0);
-        Text nLabel = new Text("N");
-        nLabel.setFont(Font.font("Monospaced", FontWeight.BOLD, 10));
-        nLabel.setFill(Theme.TEXT_SECONDARY_COLOR);
-        // Desenha texto "N" via canvas
-        gc.setFont(nLabel.getFont());
+        gc.setFont(Font.font("Monospaced", FontWeight.BOLD, 10));
         gc.fillText("N", cx - 3, cy - s - 4);
         bgNeedsRedraw = false;
     }//fim do metodo drawBackground
 
     /* ***************************************************************
     * Metodo: drawLinks
-    * Funcao: desenha links como cabos (externo 6px #504945, nucleo 2px #a89984)
-    *         com placa de peso retangular borda 1px. Desabilitado: tracejado
+    * Funcao: desenha TODOS os cabos primeiro (contorno escuro + nucleo claro),
+    *         depois TODAS as placas de peso por cima. Desabilitado: tracejado
     *         cinza #665c54 com marca de corte.
     * Parametros: nenhum
     * Retorno: void
     *************************************************************** */
     private void drawLinks() {
         linksLayer.getChildren().clear();
-        Color outerColor = Theme.BORDER_COLOR;        // #504945
-        Color coreColor = Theme.TEXT_SECONDARY_COLOR; // #a89984
+        Color outerColor = Theme.BORDER_COLOR;        // #504945 - contorno escuro
+        Color coreColor = Theme.YELLOW_COLOR;         // #d79921 - nucleo claro (amarelo sujo)
         Color disabledColor = Theme.INACTIVE_COLOR;   // #665c54
+
+        // PASSO 1: Desenha TODOS os cabos (linhas)
         for (Link link : graph.getLinks()) {
             double x1 = nodeX[link.getA() - 1];
             double y1 = nodeY[link.getA() - 1];
             double x2 = nodeX[link.getB() - 1];
             double y2 = nodeY[link.getB() - 1];
-            // Cabo: linha externa grossa
+
+            // Cabo: contorno externo escuro (mais grosso)
             Line outer = new Line(x1, y1, x2, y2);
-            outer.setStrokeWidth(6.0);
+            outer.setStrokeWidth(7.0);
             outer.setStrokeLineCap(StrokeLineCap.ROUND);
-            // Cabo: nucleo fino
+            outer.setMouseTransparent(true);
+
+            // Cabo: nucleo claro (mais fino, por cima)
             Line core = new Line(x1, y1, x2, y2);
-            core.setStrokeWidth(2.0);
+            core.setStrokeWidth(3.0);
             core.setStrokeLineCap(StrokeLineCap.ROUND);
             core.setMouseTransparent(true);
-            // Area de clique
+
+            // Area de clique (invisivel, por cima de tudo)
             Line hitArea = new Line(x1, y1, x2, y2);
             hitArea.setStrokeWidth(HIT_WIDTH);
             hitArea.setStroke(Color.TRANSPARENT);
             hitArea.setCursor(Cursor.HAND);
+
             if (link.isEnabled()) {
                 outer.setStroke(outerColor);
                 core.setStroke(coreColor);
@@ -303,7 +326,7 @@ public class GraphPane extends Pane {
                 outer.getStrokeDashArray().addAll(10.0, 6.0);
                 core.setStroke(disabledColor);
                 core.getStrokeDashArray().addAll(10.0, 6.0);
-                // Marca de corte (X no meio)
+                // Marca de corte (X no meio) - vermelho
                 double mx = (x1 + x2) / 2.0;
                 double my = (y1 + y2) / 2.0;
                 double cut = 10.0;
@@ -317,12 +340,20 @@ public class GraphPane extends Pane {
                 cut2.setMouseTransparent(true);
                 linksLayer.getChildren().addAll(cut1, cut2);
             }
+
             hitArea.setOnMouseClicked(event -> {
                 link.setEnabled(!link.isEnabled());
                 drawLinks();
             });
+
             linksLayer.getChildren().addAll(outer, core, hitArea);
-            addWeightLabel(link.getWeight(), (x1 + x2) / 2.0, (y1 + y2) / 2.0, link.isEnabled());
+        }
+
+        // PASSO 2: Desenha TODAS as placas de peso por cima dos cabos
+        for (Link link : graph.getLinks()) {
+            double cx = (nodeX[link.getA() - 1] + nodeX[link.getB() - 1]) / 2.0;
+            double cy = (nodeY[link.getA() - 1] + nodeY[link.getB() - 1]) / 2.0;
+            addWeightLabel(link.getWeight(), cx, cy, link.isEnabled());
         }
     }//fim do metodo drawLinks
 
@@ -356,30 +387,38 @@ public class GraphPane extends Pane {
 
     /* ***************************************************************
     * Metodo: drawNodes
-    * Funcao: desenha nos como hexagonos ponta-para-cima (raio 24,
-    *         preenchimento #3c3836, borda 2px #a89984). Rotulo mono
-    *         negrito. TX/RX sob nos. Destino atingido: borda laranja 4px.
+    * Funcao: desenha nos como hexagonos ponta-para-cima (raio proporcional
+    *         18-32, preenchimento #3c3836, borda 2px #a89984). Rotulo mono
+    *         negrito proporcional (>=14). TX/RX como placas preenchidas.
+    *         Destino atingido: borda laranja 4px.
     * Parametros: nenhum
     * Retorno: void
     *************************************************************** */
     private void drawNodes() {
         nodesLayer.getChildren().clear();
         List<model.Node> nodes = graph.getNodes();
+        double r = currentHexR;
+        double labelSize = currentLabelSize;
+        double tagSize = 12.0;
+        double tagPadX = 8.0;
+        double tagPadY = 3.0;
+
         for (int i = 0; i < nodes.size(); i++) {
             int id = nodes.get(i).getId();
             double cx = nodeX[i];
             double cy = nodeY[i];
+
             // Hexagono (ponta para cima)
             Polygon hex = new Polygon();
-            // Vertices: 30, 90, 150, 210, 270, 330 graus
             for (int v = 0; v < 6; v++) {
                 double angle = Math.toRadians(30 + v * 60);
                 hex.getPoints().addAll(
-                    cx + HEX_R * Math.cos(angle),
-                    cy + HEX_R * Math.sin(angle)
+                    cx + r * Math.cos(angle),
+                    cy + r * Math.sin(angle)
                 );
             }
             hex.setFill(Theme.HEADER_COLOR); // #3c3836
+
             boolean isDest = destinationReached && id == destinationId;
             if (id == sourceId) {
                 hex.setStroke(Theme.TX_COLOR_OBJ); // #98971a
@@ -393,30 +432,46 @@ public class GraphPane extends Pane {
                 hex.setStroke(Theme.ORANGE_ACCENT_COLOR); // #fe8019
             }
             hex.setMouseTransparent(true);
+
             // Rotulo do no
             Text label = new Text(nodes.get(i).getLabel());
-            label.setFont(Font.font("Monospaced", FontWeight.BOLD, 14));
+            label.setFont(Font.font("Monospaced", FontWeight.BOLD, labelSize));
             label.setFill(Theme.TEXT_COLOR);
             label.setTextOrigin(VPos.CENTER);
             label.setX(cx - label.getLayoutBounds().getWidth() / 2.0);
             label.setY(cy);
             label.setMouseTransparent(true);
-            // Etiqueta TX/RX
-            Text tag = null;
-            if (id == sourceId) {
-                tag = new Text("TX");
-                tag.setFill(Theme.TX_COLOR_OBJ);
-            } else if (id == destinationId) {
-                tag = new Text("RX");
-                tag.setFill(Theme.RX_COLOR_OBJ);
-            }
-            if (tag != null) {
-                tag.setFont(Font.font("Monospaced", FontWeight.BOLD, 9));
-                tag.setX(cx - tag.getLayoutBounds().getWidth() / 2.0);
-                tag.setY(cy + NODE_RADIUS + 14.0);
+
+            // Etiqueta TX/RX como placa preenchida
+            if (id == sourceId || id == destinationId) {
+                String tagText = (id == sourceId) ? "TX" : "RX";
+                Color tagFill = (id == sourceId) ? Theme.TX_COLOR_OBJ : Theme.RX_COLOR_OBJ;
+                Color tagTextColor = Theme.TEXT_COLOR; // #ebdbb2
+
+                Text tag = new Text(tagText);
+                tag.setFont(Font.font("Monospaced", FontWeight.BOLD, tagSize));
+                tag.setFill(tagTextColor);
+                double tw = tag.getLayoutBounds().getWidth();
+                double th = tag.getLayoutBounds().getHeight();
+                double trw = tw + 2 * tagPadX;
+                double trh = th + 2 * tagPadY;
+                Rectangle tagBg = new Rectangle(
+                    cx - trw / 2.0,
+                    cy + r + 6.0, // 6px abaixo do hexagono
+                    trw, trh
+                );
+                tagBg.setFill(tagFill);
+                tagBg.setStroke(Theme.BORDER_COLOR);
+                tagBg.setStrokeWidth(1.0);
+                tagBg.setArcWidth(4.0);
+                tagBg.setArcHeight(4.0);
+                tagBg.setMouseTransparent(true);
                 tag.setMouseTransparent(true);
-                nodesLayer.getChildren().add(tag);
+                tag.setX(cx - tw / 2.0);
+                tag.setY(cy + r + 6.0 + trh / 2.0 + th / 4.0);
+                nodesLayer.getChildren().addAll(tagBg, tag);
             }
+
             nodesLayer.getChildren().addAll(hex, label);
         }
     }//fim do metodo drawNodes
