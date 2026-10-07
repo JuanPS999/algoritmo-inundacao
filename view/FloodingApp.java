@@ -17,6 +17,10 @@ import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
+import javafx.scene.control.Alert.AlertType;
+import javafx.scene.control.Menu;
+import javafx.scene.control.MenuBar;
+import javafx.scene.control.MenuItem;
 import javafx.scene.control.SplitPane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -50,7 +54,7 @@ public class FloodingApp extends Application {
         try {
             graph = BackboneLoader.load(Paths.get("backbone.txt"));
         } catch (Exception e) {
-            Alert alert = new Alert(Alert.AlertType.ERROR);
+            Alert alert = new Alert(AlertType.ERROR);
             alert.setTitle("Erro");
             alert.setHeaderText("Falha ao carregar o backbone.txt");
             alert.setContentText(e.getMessage());
@@ -87,14 +91,29 @@ public class FloodingApp extends Application {
 
         // SplitPane com 3 painéis: controles | grafo | resultados+log
         SplitPane splitPane = new SplitPane();
-        splitPane.setDividerPositions(0.2, 0.55); // posições iniciais aproximadas
+        splitPane.setDividerPositions(0.2, 0.55);
         splitPane.getItems().addAll(controlPanel, graphPane, rightPane);
 
-        // Impede redimensionamento dos painéis laterais com a janela
-        splitPane.getDividers().forEach(divider -> divider.setPosition(0.5));
+        // MenuBar com Arquivo e Ajuda (inclui Sobre)
+        MenuBar menuBar = new MenuBar();
+        Menu fileMenu = new Menu("ARQUIVO");
+        MenuItem exitItem = new MenuItem("SAIR");
+        exitItem.setOnAction(e -> Platform.exit());
+        fileMenu.getItems().add(exitItem);
+
+        Menu helpMenu = new Menu("AJUDA");
+        MenuItem aboutItem = new MenuItem("SOBRE");
+        aboutItem.setOnAction(e -> AboutDialog.show());
+        helpMenu.getItems().add(aboutItem);
+
+        menuBar.getMenus().addAll(fileMenu, helpMenu);
+
+        // Root com MenuBar no topo
+        VBox root = new VBox(menuBar, splitPane);
+        VBox.setVgrow(splitPane, Priority.ALWAYS);
 
         // Variaveis CSS do tema escuro (Gruvbox) aplicadas na raiz
-        splitPane.setStyle(
+        root.setStyle(
             "-fx-base: #282828;" +
             "-fx-background: #1d2021;" +
             "-fx-control-inner-background: #1d2021;" +
@@ -105,7 +124,7 @@ public class FloodingApp extends Application {
             "-fx-faint-focus-color: transparent;"
         );
 
-        Scene scene = new Scene(splitPane, 1280, 760);
+        Scene scene = new Scene(root, 1280, 760);
         Theme.apply(scene);
         primaryStage.setTitle("Roteamento por Inundacao");
         primaryStage.setScene(scene);

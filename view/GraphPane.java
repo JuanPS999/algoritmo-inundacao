@@ -8,7 +8,7 @@
 *                    links estilo cabo), pacotes em transito e permite
 *                    habilitar/desabilitar links com o clique.
 *                    Fundo e pacotes em Canvas; grade e seta norte.
-*                    Pulso visual de atividade nos nos.
+*                    Pulso visual de atividade nos nos (Canvas).
 *************************************************************** */
 package view;
 
@@ -55,14 +55,15 @@ public class GraphPane extends Pane {
     private static final double TTL_OFFSET_X = 6.0;
     private static final double TTL_OFFSET_Y = -10.0;
 
-    // Pulso de atividade: duracao ~300 ms em nanossegundos
-    private static final long PULSE_DURATION_NS = 300_000_000L;
-    private static final double PULSE_MAX_EXPANSION = 8.0; // pixels alem do raio do hexagono
-    private static final int PULSE_STROKE_WIDTH = 3;
+    // Pulso de atividade: duracao ~225 ms em nanossegundos
+    private static final long PULSE_DURATION_NS = 225_000_000L;
+    private static final double PULSE_MAX_EXPANSION = 8.0;
+    private static final double PULSE_STROKE_WIDTH = 2.5;
 
     private Graph graph;
     private final Canvas bgCanvas = new Canvas();
     private final Canvas packetsCanvas = new Canvas();
+    private final Canvas pulseCanvas = new Canvas();
     private final Group linksLayer = new Group();
     private final Group nodesLayer = new Group();
     private double[] nodeX = new double[0];
@@ -105,7 +106,10 @@ public class GraphPane extends Pane {
         packetsCanvas.widthProperty().bind(widthProperty());
         packetsCanvas.heightProperty().bind(heightProperty());
         packetsCanvas.setMouseTransparent(true);
-        getChildren().addAll(bgCanvas, linksLayer, nodesLayer, packetsCanvas);
+        pulseCanvas.widthProperty().bind(widthProperty());
+        pulseCanvas.heightProperty().bind(heightProperty());
+        pulseCanvas.setMouseTransparent(true);
+        getChildren().addAll(bgCanvas, linksLayer, nodesLayer, pulseCanvas, packetsCanvas);
         widthProperty().addListener((obs, o, n) -> {
             bgNeedsRedraw = true;
             redraw();
@@ -154,7 +158,7 @@ public class GraphPane extends Pane {
     * Metodo: pulse
     * Funcao: registra um pulso de atividade no no indicado.
     *         O pulso e desenhado como contorno hexagonal laranja
-    *         que se expande e desaparece em ~300 ms.
+    *         que se expande e desaparece em ~225 ms no Canvas.
     * Parametros: nodeId = id do no (1-based)
     * Retorno: void
     *************************************************************** */
@@ -169,24 +173,27 @@ public class GraphPane extends Pane {
     * Funcao: redesenha pacotes em transito no Canvas unico.
     *         Cada pacote: ponto raio 3 em #fe8019 alpha 0.85.
     *         TTL: monoespaçado 12px se <= 150 pacotes e showTtl=true.
+    *         Tambem desenha pulsos de atividade no pulseCanvas.
     * Parametros: flights = pacotes em transito; virtualTime = relogio virtual
     *             showTtl = true para exibir TTL
     * Retorno: void
     *************************************************************** */
     public void showPackets(List<Simulator.InFlight> flights,
             long virtualTime, boolean showTtl) {
-        GraphicsContext gc = packetsCanvas.getGraphicsContext2D();
         double w = getWidth();
         double h = getHeight();
-        gc.clearRect(0, 0, w, h);
+
+        // Pacotes no packetsCanvas
+        GraphicsContext gcPkt = packetsCanvas.getGraphicsContext2D();
+        gcPkt.clearRect(0, 0, w, h);
 
         boolean drawTtl = showTtl && flights.size() <= MAX_PACKETS_FOR_TTL;
 
         if (drawTtl) {
-            gc.setFont(Font.font("Monospaced", FontWeight.BOLD, TTL_FONT_SIZE));
-            gc.setFill(Theme.TEXT_COLOR);
+            gcPkt.setFont(Font.font("Monospaced", FontWeight.BOLD, TTL_FONT_SIZE));
+            gcPkt.setFill(Theme.TEXT_COLOR);
         }
-        gc.setFill(PACKET_COLOR);
+        gcPkt.setFill(PACKET_COLOR);
 
         for (Simulator.InFlight flight : flights) {
             Link link = flight.link;
@@ -200,28 +207,83 @@ public class GraphPane extends Pane {
             double x = fromX + (nodeX[toId - 1] - fromX) * progress;
             double y = fromY + (nodeY[toId - 1] - fromY) * progress;
 
-            gc.fillOval(x - PACKET_RADIUS, y - PACKET_RADIUS,
+            gcPkt.fillOval(x - PACKET_RADIUS, y - PACKET_RADIUS,
                     PACKET_RADIUS * 2.0, PACKET_RADIUS * 2.0);
 
             if (drawTtl) {
                 String ttlText = "ttl=" + flight.packet.getTtl();
-                gc.fillText(ttlText, x + TTL_OFFSET_X, y + TTL_OFFSET_Y);
+                gcPkt.fillText(ttlText, x + TTL_OFFSET_X, y + TTL_OFFSET_Y);
             }
         }
+
+        // Pulsos no pulseCanvas (chamado a cada frame pela animacao)
+        drawPulses();
     }//fim do metodo showPackets
 
     /* ***************************************************************
+    * Metodo: drawPulses
+    * Funcao: desenha pulsos de atividade no pulseCanvas.
+    *         Hexagono expandido com fade-out baseado no tempo real.
+    *         Remove pulsos expirados.
+    * Parametros: nenhum
+    * Retorno: void
+    *************************************************************** */
+    private void drawPulses() {
+        double w = getWidth();
+        double h = getHeight();
+        GraphicsContext gc = pulseCanvas.getGraphicsContext2D();
+        gc.clearRect(0, 0, w, h);
+
+        long now = System.nanoTime();
+        Color pulseColorBase = Color.web("#fe8019");
+
+        for (int i = 0; i < nodeX.length; i++) {
+            int nodeId = i + 1;
+            Long pulseTime = nodePulses.get(nodeId);
+            if (pulseTime == null) continue;
+
+            long elapsed = now - pulseTime;
+            if (elapsed >= PULSE_DURATION_NS) {
+                nodePulses.remove(nodeId);
+                continue;
+            }
+
+            double progress = (double) elapsed / PULSE_DURATION_NS;
+            double cx = nodeX[i];
+            double cy = nodeY[i];
+            double r = currentHexR + PULSE_MAX_EXPANSION * progress;
+            double alpha = 1.0 - progress;
+            gc.setStroke(Color.web("#fe8019", alpha));
+            gc.setLineWidth(PULSE_STROKE_WIDTH);
+
+            // Desenha hexagono no Canvas
+            gc.beginPath();
+            for (int v = 0; v < 6; v++) {
+                double angle = Math.toRadians(30 + v * 60);
+                double x = cx + r * Math.cos(angle);
+                double y = cy + r * Math.sin(angle);
+                if (v == 0) gc.moveTo(x, y);
+                else gc.lineTo(x, y);
+            }
+            gc.closePath();
+            gc.stroke();
+        }
+    }//fim do metodo drawPulses
+
+    /* ***************************************************************
     * Metodo: clearPackets
-    * Funcao: limpa o Canvas de pacotes e os pulsos de atividade.
+    * Funcao: limpa o Canvas de pacotes, Canvas de pulsos e estados.
     * Parametros: nenhum
     * Retorno: void
     *************************************************************** */
     public void clearPackets() {
-        GraphicsContext gc = packetsCanvas.getGraphicsContext2D();
+        GraphicsContext gcPkt = packetsCanvas.getGraphicsContext2D();
+        GraphicsContext gcPulse = pulseCanvas.getGraphicsContext2D();
         double w = getWidth();
         double h = getHeight();
         if (w > 0 && h > 0) {
-            gc.clearRect(0, 0, w, h);
+            gcPkt.clearRect(0, 0, w, h);
+            gcPulse.clearRect(0, 0, w, h);
         }
         nodePulses.clear();
     }//fim do metodo clearPackets
@@ -425,7 +487,7 @@ public class GraphPane extends Pane {
     *         18-32, preenchimento #3c3836, borda 2px #a89984). Rotulo mono
     *         negrito proporcional (>=14). TX/RX como placas preenchidas.
     *         Destino atingido: borda laranja 4px.
-    *         Pulso ativo: contorno hexagonal laranja expandido com fade.
+    *         NAO desenha pulsos aqui (feito no pulseCanvas em showPackets).
     * Parametros: nenhum
     * Retorno: void
     *************************************************************** */
@@ -437,8 +499,6 @@ public class GraphPane extends Pane {
         double tagSize = 12.0;
         double tagPadX = 8.0;
         double tagPadY = 3.0;
-
-        long now = System.nanoTime();
 
         for (int i = 0; i < nodes.size(); i++) {
             int id = nodes.get(i).getId();
@@ -507,38 +567,6 @@ public class GraphPane extends Pane {
             }
 
             nodesLayer.getChildren().addAll(hex, label);
-
-            // Pulso de atividade: contorno hexagonal expandido com fade
-            Long pulseTime = nodePulses.get(id);
-            if (pulseTime != null) {
-                long elapsed = now - pulseTime;
-                if (elapsed < PULSE_DURATION_NS) {
-                    double progress = (double) elapsed / PULSE_DURATION_NS;
-                    // Expansao: 0 -> PULSE_MAX_EXPANSION
-                    double pulseR = r + PULSE_MAX_EXPANSION * progress;
-                    // Alpha: 1.0 -> 0.0 (fade out)
-                    double alpha = 1.0 - progress;
-                    Color pulseColor = Color.web("#fe8019", alpha);
-
-                    Polygon pulseHex = new Polygon();
-                    for (int v = 0; v < 6; v++) {
-                        double angle = Math.toRadians(30 + v * 60);
-                        pulseHex.getPoints().addAll(
-                            cx + pulseR * Math.cos(angle),
-                            cy + pulseR * Math.sin(angle)
-                        );
-                    }
-                    pulseHex.setFill(null);
-                    pulseHex.setStroke(pulseColor);
-                    pulseHex.setStrokeWidth(PULSE_STROKE_WIDTH);
-                    pulseHex.setStrokeLineCap(StrokeLineCap.ROUND);
-                    pulseHex.setMouseTransparent(true);
-                    nodesLayer.getChildren().add(pulseHex);
-                } else {
-                    // Pulso expirado: remove do mapa no proximo redraw
-                    nodePulses.remove(id);
-                }
-            }
         }
     }//fim do metodo drawNodes
 
