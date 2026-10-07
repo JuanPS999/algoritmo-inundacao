@@ -17,7 +17,7 @@ import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
-import javafx.scene.layout.BorderPane;
+import javafx.scene.control.SplitPane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
@@ -33,6 +33,11 @@ public class FloodingApp extends Application {
     private ControlPanel controlPanel;
     private ResultsTable resultsTable;
     private EventLogPane eventLogPane;
+
+    // Larguras preferidas dos painéis
+    private static final double LEFT_PREF_WIDTH = 300.0;
+    private static final double RIGHT_PREF_WIDTH = 420.0;
+    private static final double GRAPH_MIN_WIDTH = 560.0;
 
     /* ***************************************************************
     * Metodo: start
@@ -64,15 +69,32 @@ public class FloodingApp extends Application {
         // Conecta log de eventos
         controller.setLogConsumer(eventLogPane::addLines);
 
-        BorderPane root = new BorderPane();
-        root.setCenter(graphPane);
-        root.setLeft(controlPanel);
-        root.setRight(new VBox(5, resultsTable.getNode(), eventLogPane));
+        // Painel direito: tabela + log (com scroll vertical)
+        VBox rightPane = new VBox(5, resultsTable.getNode(), eventLogPane);
         VBox.setVgrow(resultsTable.getNode(), Priority.ALWAYS);
         VBox.setVgrow(eventLogPane, Priority.ALWAYS);
+        rightPane.setMinWidth(RIGHT_PREF_WIDTH);
+        rightPane.setPrefWidth(RIGHT_PREF_WIDTH);
+        rightPane.setMaxWidth(RIGHT_PREF_WIDTH);
+
+        // Painel esquerdo: controles (largura fixa)
+        controlPanel.setMinWidth(LEFT_PREF_WIDTH);
+        controlPanel.setPrefWidth(LEFT_PREF_WIDTH);
+        controlPanel.setMaxWidth(LEFT_PREF_WIDTH);
+
+        // Grafo: protagonista, largura minima 560
+        graphPane.setMinWidth(GRAPH_MIN_WIDTH);
+
+        // SplitPane com 3 painéis: controles | grafo | resultados+log
+        SplitPane splitPane = new SplitPane();
+        splitPane.setDividerPositions(0.2, 0.55); // posições iniciais aproximadas
+        splitPane.getItems().addAll(controlPanel, graphPane, rightPane);
+
+        // Impede redimensionamento dos painéis laterais com a janela
+        splitPane.getDividers().forEach(divider -> divider.setPosition(0.5));
 
         // Variaveis CSS do tema escuro (Gruvbox) aplicadas na raiz
-        root.setStyle(
+        splitPane.setStyle(
             "-fx-base: #282828;" +
             "-fx-background: #1d2021;" +
             "-fx-control-inner-background: #1d2021;" +
@@ -83,12 +105,12 @@ public class FloodingApp extends Application {
             "-fx-faint-focus-color: transparent;"
         );
 
-        Scene scene = new Scene(root, 1200, 800);
+        Scene scene = new Scene(splitPane, 1280, 760);
         Theme.apply(scene);
         primaryStage.setTitle("Roteamento por Inundacao");
         primaryStage.setScene(scene);
-        primaryStage.setMinWidth(1000);
-        primaryStage.setMinHeight(620);
+        primaryStage.setMinWidth(1100);
+        primaryStage.setMinHeight(680);
         primaryStage.show();
 
         primaryStage.setOnCloseRequest(e -> {

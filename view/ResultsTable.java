@@ -69,7 +69,7 @@ public final class ResultsTable {
         }
 
         table.setItems(items);
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        table.setColumnResizePolicy(TableView.UNCONSTRAINED_RESIZE_POLICY);
 
         TableColumn<RowData, String> colVersion = new TableColumn<RowData, String>("VERSAO");
         colVersion.setCellValueFactory(cell -> new SimpleStringProperty("V" + cell.getValue().version));

@@ -36,11 +36,11 @@ public class GraphPane extends Pane {
     private static final double NODE_RADIUS = 24.0;
     private static final double PACKET_RADIUS = 6.0;
     private static final double MARGIN = 50.0;
-    private static final double MIN_LAYOUT_RADIUS = 40.0;
     private static final double HIT_WIDTH = 16.0;
     private static final double HEX_R = NODE_RADIUS;
     private static final double HEX_FLAT = HEX_R * Math.sqrt(3) / 2.0;
     private static final double GRID_SIZE = 40.0;
+    private static final double HEX_GAP = 8.0; // espaco minimo entre hexagonos
 
     private Graph graph;
     private final Canvas bgCanvas = new Canvas();
@@ -197,8 +197,21 @@ public class GraphPane extends Pane {
         nodeY = new double[count];
         double centerX = getWidth() / 2.0;
         double centerY = getHeight() / 2.0;
-        double radius = Math.min(getWidth(), getHeight()) / 2.0 - NODE_RADIUS - MARGIN;
-        if (radius < MIN_LAYOUT_RADIUS) radius = MIN_LAYOUT_RADIUS;
+
+        // Raio minimo para que hexagonos nao se sobreponham
+        // Distancia entre centros adjacentes = 2 * R * sin(pi/n)
+        // Deve ser >= 2 * HEX_R + HEX_GAP
+        double minRadiusForNodes;
+        if (count <= 1) {
+            minRadiusForNodes = 0;
+        } else {
+            double angleBetween = Math.PI / count;
+            minRadiusForNodes = (HEX_R + HEX_GAP / 2.0) / Math.sin(angleBetween);
+        }
+
+        double availableRadius = Math.min(getWidth(), getHeight()) / 2.0 - NODE_RADIUS - MARGIN;
+        double radius = Math.max(availableRadius, minRadiusForNodes);
+
         for (int i = 0; i < count; i++) {
             double angle = 2.0 * Math.PI * i / count - Math.PI / 2.0;
             nodeX[i] = centerX + radius * Math.cos(angle);
