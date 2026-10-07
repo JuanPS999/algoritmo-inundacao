@@ -54,10 +54,13 @@ public class GraphPane extends Pane {
 
     // Constantes visuais dos pacotes
     private static final Color PACKET_COLOR = Color.web(Theme.ORANGE_ACCENT, 0.85);
-    private static final int MAX_PACKETS_FOR_TTL = 150;
+    private static final int MAX_PACKETS_FOR_TTL = 60;
     private static final double TTL_FONT_SIZE = 12.0;
-    private static final double TTL_OFFSET_X = 6.0;
-    private static final double TTL_OFFSET_Y = -10.0;
+    private static final double TTL_OFFSET_PERP = 14.0; // deslocamento perpendicular ao cabo
+
+    // Placas de peso: distancia minima de outros cabos
+    private static final double WEIGHT_LABEL_MIN_DIST = 18.0;
+    private static final double[] WEIGHT_LABEL_T_CANDIDATES = {0.5, 0.4, 0.6, 0.3, 0.7};
 
     // Pulso de atividade: duracao ~225 ms em nanossegundos
     private static final long PULSE_DURATION_NS = 225_000_000L;
@@ -89,6 +92,9 @@ public class GraphPane extends Pane {
 
     // Conjunto de links com pacotes em transito (para destacar cabos ativos)
     private final Set<Link> activeLinks = new HashSet<Link>();
+
+    // Posicoes calculadas das placas de peso (t ao longo do cabo, indexado por link id)
+    private final Map<Link, Double> weightLabelPositions = new HashMap<Link, Double>();
 
     // Mapa de pulsos ativos: nodeId -> instante de ativacao (nanoTime)
     private final Map<Integer, Long> nodePulses = new HashMap<Integer, Long>();
@@ -251,9 +257,25 @@ public class GraphPane extends Pane {
                     PACKET_RADIUS * 2.0, PACKET_RADIUS * 2.0);
 
             if (drawTtl) {
+                gcPkt.setFont(Font.font("Monospaced", FontWeight.BOLD, TTL_FONT_SIZE));
+                // Calcular vetor perpendicular ao cabo para deslocamento
+                double dx = nodeX[toId - 1] - fromX;
+                double dy = nodeY[toId - 1] - fromY;
+                double len = Math.hypot(dx, dy);
+                double px = 0, py = 0;
+                if (len > 0) {
+                    // Perpendicular (rotacionado 90 graus): (-dy, dx) normalizado
+                    px = -dy / len * TTL_OFFSET_PERP;
+                    py = dx / len * TTL_OFFSET_PERP;
+                }
+                String ttlText = Integer.toString(flight.packet.getTtl());
+                // Contorno escuro
+                gcPkt.setStroke(Theme.BG_COLOR);
+                gcPkt.setLineWidth(2.0);
+                gcPkt.strokeText(ttlText, x + px, y + py);
+                // Preenchimento
                 gcPkt.setFill(Theme.TEXT_COLOR);
-                String ttlText = "ttl=" + flight.packet.getTtl();
-                gcPkt.fillText(ttlText, x + TTL_OFFSET_X, y + TTL_OFFSET_Y);
+                gcPkt.fillText(ttlText, x + px, y + py);
             }
         }
 
@@ -354,6 +376,7 @@ public class GraphPane extends Pane {
         int count = graph.getNodeCount();
         nodeX = new double[count];
         nodeY = new double[count];
+        weightLabelPositions.clear();
         double centerX = getWidth() / 2.0;
         double centerY = getHeight() / 2.0;
 
@@ -439,6 +462,18 @@ public class GraphPane extends Pane {
         Color coreActiveColor = Theme.ORANGE_ACCENT_COLOR; // #fe8019 (laranja) - ativo
         Color disabledColor = Theme.INACTIVE_COLOR;       // #665c54
 
+        // Calcular posicoes das placas de peso se ainda nao calculadas (carregamento ou resize)
+        boolean needCalc = weightLabelPositions.isEmpty();
+        if (needCalc) {
+            weightLabelPositions.clear();
+            for (Link link : graph.getLinks()) {
+                double cx = (nodeX[link.getA() - 1] + nodeX[link.getB() - 1]) / 2.0;
+                double cy = (nodeY[link.getA() - 1] + nodeY[link.getB() - 1]) / 2.0;
+                double t = calcularMelhorPosicaoPeso(link, cx, cy);
+                weightLabelPositions.put(link, t);
+            }
+        }
+
         for (Link link : graph.getLinks()) {
             double x1 = nodeX[link.getA() - 1];
             double y1 = nodeY[link.getA() - 1];
@@ -491,10 +526,16 @@ public class GraphPane extends Pane {
             linksLayer.getChildren().addAll(outer, core, hitArea);
         }
 
+        // Desenhar placas de peso nas posicoes calculadas
         for (Link link : graph.getLinks()) {
-            double cx = (nodeX[link.getA() - 1] + nodeX[link.getB() - 1]) / 2.0;
-            double cy = (nodeY[link.getA() - 1] + nodeY[link.getB() - 1]) / 2.0;
-            addWeightLabel(link.getWeight(), cx, cy, link.isEnabled());
+            double x1 = nodeX[link.getA() - 1];
+            double y1 = nodeY[link.getA() - 1];
+            double x2 = nodeX[link.getB() - 1];
+            double y2 = nodeY[link.getB() - 1];
+            double t = weightLabelPositions.getOrDefault(link, 0.5);
+            double cx = x1 + (x2 - x1) * t;
+            double cy = y1 + (y2 - y1) * t;
+            addWeightLabel(link.getWeight(), cx, cy, link.isEnabled(), t);
         }
     }//fim do metodo drawLinks
 
@@ -505,7 +546,7 @@ public class GraphPane extends Pane {
     * Parametros: weight = peso; cx, cy = ponto medio; enabled = link ativo
     * Retorno: void
     *************************************************************** */
-    private void addWeightLabel(int weight, double cx, double cy, boolean enabled) {
+    private void addWeightLabel(int weight, double cx, double cy, boolean enabled, double t) {
         Text text = new Text(String.valueOf(weight));
         text.setFont(Font.font("Monospaced", FontWeight.BOLD, 12));
         text.setFill(enabled ? Theme.YELLOW_COLOR : Theme.TEXT_SECONDARY_COLOR);
@@ -525,6 +566,74 @@ public class GraphPane extends Pane {
         text.setY(cy + height / 4.0);
         linksLayer.getChildren().addAll(bg, text);
     }//fim do metodo addWeightLabel
+
+    /* ***************************************************************
+    * Metodo: calcularMelhorPosicaoPeso
+    * Funcao: encontra a melhor posicao t ao longo do cabo para a placa
+    *         de peso, evitando cruzamentos com outros cabos.
+    *         Testa t = 0.5, 0.4, 0.6, 0.3, 0.7; usa o primeiro onde
+    *         a placa fica a mais de WEIGHT_LABEL_MIN_DIST de qualquer
+    *         outro cabo. Se nenhum, usa 0.5.
+    * Parametros: link = link atual; cx, cy = ponto medio do link
+    * Retorno: double t (0..1) ao longo do cabo
+    *************************************************************** */
+    private double calcularMelhorPosicaoPeso(Link link, double cx, double cy) {
+        double x1 = nodeX[link.getA() - 1];
+        double y1 = nodeY[link.getA() - 1];
+        double x2 = nodeX[link.getB() - 1];
+        double y2 = nodeY[link.getB() - 1];
+        double dx = x2 - x1;
+        double dy = y2 - y1;
+        double len = Math.hypot(dx, dy);
+        if (len == 0) return 0.5;
+
+        // Criar um texto temporario para medir dimensoes
+        Text tempText = new Text(String.valueOf(link.getWeight()));
+        tempText.setFont(Font.font("Monospaced", FontWeight.BOLD, 12));
+        double width = tempText.getLayoutBounds().getWidth();
+        double height = tempText.getLayoutBounds().getHeight();
+        double padX = 8.0;
+        double padY = 3.0;
+        double rw = width + 2 * padX;
+        double rh = height + 2 * padY;
+
+        for (double t : WEIGHT_LABEL_T_CANDIDATES) {
+            double tx = x1 + dx * t;
+            double ty = y1 + dy * t;
+
+            // Verificar distancia a todos os outros cabos
+            boolean ok = true;
+            for (Link other : graph.getLinks()) {
+                if (other == link) continue;
+                double ox1 = nodeX[other.getA() - 1];
+                double oy1 = nodeY[other.getA() - 1];
+                double ox2 = nodeX[other.getB() - 1];
+                double oy2 = nodeY[other.getB() - 1];
+
+                // Distancia do ponto (tx, ty) ao segmento (ox1,oy1)-(ox2,oy2)
+                double odx = ox2 - ox1;
+                double ody = oy2 - oy1;
+                double olen2 = odx * odx + ody * ody;
+                double dist;
+                if (olen2 == 0) {
+                    dist = Math.hypot(tx - ox1, ty - oy1);
+                } else {
+                    double u = ((tx - ox1) * odx + (ty - oy1) * ody) / olen2;
+                    u = Math.max(0, Math.min(1, u));
+                    double closestX = ox1 + u * odx;
+                    double closestY = oy1 + u * ody;
+                    dist = Math.hypot(tx - closestX, ty - closestY);
+                }
+
+                if (dist < WEIGHT_LABEL_MIN_DIST + Math.max(rw, rh) / 2.0) {
+                    ok = false;
+                    break;
+                }
+            }
+            if (ok) return t;
+        }
+        return 0.5;
+    }//fim do metodo calcularMelhorPosicaoPeso
 
     /* ***************************************************************
     * Metodo: drawNodes
