@@ -11,6 +11,7 @@ package view;
 import controller.SimulationController;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.ComboBox;
@@ -25,7 +26,10 @@ import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
 import javafx.util.StringConverter;
 import model.Graph;
 import model.RunResult;
@@ -73,6 +77,11 @@ public class ControlPanel extends VBox {
   private Label overlaySnapshotLabel;
   private Label overlayFinishedLabel;
 
+  // Indicador de estado (quadrado + texto)
+  private final StackPane statusIndicator = new StackPane();
+  private final Rectangle statusSquare = new Rectangle(14, 14);
+  private final Label statusText = new Label();
+
   public ControlPanel(SimulationController controller, Graph graph) {
     this.controller = controller;
     this.graph = graph;
@@ -83,6 +92,8 @@ public class ControlPanel extends VBox {
     setMaxWidth(360);
     Theme.stylePanel(this);
     build();
+    // Estado inicial: PRONTO
+    setState("PRONTO");
   }
 
   /* ***************************************************************
@@ -102,6 +113,16 @@ public class ControlPanel extends VBox {
   * Retorno: void
   *************************************************************** */
   private void build() {
+    // Indicador de estado no topo
+    statusSquare.setArcWidth(2);
+    statusSquare.setArcHeight(2);
+    statusText.setFont(Theme.FONT_12_BOLD);
+    statusText.setTextFill(Theme.TEXT_COLOR);
+    statusIndicator.setAlignment(Pos.CENTER_LEFT);
+    statusIndicator.getChildren().addAll(statusSquare, statusText);
+    StackPane.setMargin(statusText, new Insets(0, 0, 0, 18));
+    getChildren().add(statusIndicator);
+
     // Abas
     TabPane tabPane = new TabPane();
     tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
@@ -124,6 +145,51 @@ public class ControlPanel extends VBox {
 
     getChildren().add(tabPane);
     VBox.setVgrow(tabPane, Priority.ALWAYS);
+  }
+
+  /* ***************************************************************
+  * Metodo: setState
+  * Funcao: Atualiza o indicador visual de estado (quadrado + texto).
+  *         Estados: PRONTO (#665c54), EXECUTANDO (laranja #fe8019),
+  *         PAUSADO (amarelo-sujo #d79921), ENCERRADO (bege #a89984),
+  *         ERRO (vermelho #fb4934).
+  * Parametros: state - nome do estado
+  * Retorno: void
+  *************************************************************** */
+  public void setState(String state) {
+    Color squareColor;
+    String text;
+    switch (state) {
+      case "PRONTO":
+        squareColor = Color.web("#665c54");
+        text = "PRONTO";
+        break;
+      case "EXECUTANDO":
+        squareColor = Color.web("#fe8019");
+        text = "EXECUTANDO";
+        break;
+      case "PAUSADO":
+        squareColor = Color.web("#d79921");
+        text = "PAUSADO";
+        break;
+      case "ENCERRADO":
+        squareColor = Color.web("#a89984");
+        text = "ENCERRADO";
+        break;
+      case "ERRO":
+        squareColor = Color.web("#fb4934");
+        text = "ERRO";
+        break;
+      case "LOTE":
+        squareColor = Color.web("#458588");
+        text = "LOTE";
+        break;
+      default:
+        squareColor = Color.web("#665c54");
+        text = state;
+    }
+    statusSquare.setFill(squareColor);
+    statusText.setText(text);
   }
 
   /* ***************************************************************

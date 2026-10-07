@@ -59,6 +59,8 @@ public class FloodingApp extends Application {
             alert.setHeaderText("Falha ao carregar o backbone.txt");
             alert.setContentText(e.getMessage());
             alert.showAndWait();
+            // controlPanel pode ainda nao existir, mas se existir, marca ERRO
+            // (o erro ocorre antes da criacao do controlPanel, entao so alerta)
             Platform.exit();
             return;
         }

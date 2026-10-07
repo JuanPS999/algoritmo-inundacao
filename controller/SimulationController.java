@@ -298,6 +298,7 @@ public class SimulationController {
         simulator.start();
         refreshView();
         timer.start();
+        controlPanel.setState("EXECUTANDO");
     }//fim do metodo start
 
     /* ***************************************************************
@@ -364,6 +365,7 @@ public class SimulationController {
             controlPanel.resetDisplay();
             controlPanel.setEstado(view.ControlPanel.EstadoSimulacao.PAUSADO);
             controlPanel.setStatus("Modo passo a passo. Clique 'Proximo evento' para avancar.");
+            controlPanel.setState("PAUSADO");
         }
         // pausa o timer se estiver rodando
         timer.stop();
@@ -402,6 +404,7 @@ public class SimulationController {
         }
         controlPanel.setEstado(paused ? view.ControlPanel.EstadoSimulacao.PAUSADO
                 : view.ControlPanel.EstadoSimulacao.RODANDO);
+        controlPanel.setState(paused ? "PAUSADO" : "EXECUTANDO");
         controlPanel.setStatus(paused ? "Pausado." : "Simulacao em andamento.");
     }//fim do metodo togglePause
 
@@ -421,6 +424,7 @@ public class SimulationController {
         graphPane.clearPackets();
         graphPane.setDestinationReached(false);
         controlPanel.resetDisplay();
+        controlPanel.setState("PRONTO");
         controlPanel.setStatus("Pronto.");
         controlPanel.setNextEventTime(Long.MAX_VALUE);
     }//fim do metodo reset
@@ -570,6 +574,7 @@ public class SimulationController {
         if (flights.isEmpty()) {
             timer.stop();
             controlPanel.setEstado(view.ControlPanel.EstadoSimulacao.ENCERRADO);
+            controlPanel.setState("ENCERRADO");
             if (snapshotShown) {
                 controlPanel.setStatus("Encerrada: nao ha mais pacotes na rede.");
             } else {
@@ -601,6 +606,7 @@ public class SimulationController {
         }
 
         controlPanel.setEstado(view.ControlPanel.EstadoSimulacao.LOTE);
+        controlPanel.setState("LOTE");
         controlPanel.setStatus("Executando lote...");
         controlPanel.setBatchProgress(0, count);
 
@@ -645,18 +651,21 @@ public class SimulationController {
             @Override
             protected void succeeded() {
                 controlPanel.setEstado(view.ControlPanel.EstadoSimulacao.OCIOSO);
+                controlPanel.setState("PRONTO");
                 controlPanel.setStatus("Lote concluido.");
             }
 
             @Override
             protected void failed() {
                 controlPanel.setEstado(view.ControlPanel.EstadoSimulacao.OCIOSO);
+                controlPanel.setState("ERRO");
                 controlPanel.setStatus("Erro no lote: " + getException().getMessage());
             }
 
             @Override
             protected void cancelled() {
                 controlPanel.setEstado(view.ControlPanel.EstadoSimulacao.OCIOSO);
+                controlPanel.setState("PRONTO");
                 controlPanel.setStatus("Lote cancelado.");
             }
         };
