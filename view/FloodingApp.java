@@ -2,7 +2,7 @@
 * Autor............: Juan Prado Da Silva
 * Matricula........: 202310291
 * Inicio...........: 01/10/2026
-* Ultima alteracao.: 06/10/2026
+* Ultima alteracao.: 07/10/2026
 * Nome.............: FloodingApp
 * Funcao...........: Aplicacao JavaFX: carrega o backbone.txt e monta a interface grafica
 *************************************************************** */
@@ -77,6 +77,8 @@ public class FloodingApp extends Application {
         Theme.apply(scene);
         primaryStage.setTitle("Roteamento por Inundacao");
         primaryStage.setScene(scene);
+        primaryStage.setMinWidth(1000);
+        primaryStage.setMinHeight(620);
         primaryStage.show();
 
         primaryStage.setOnCloseRequest(e -> {

@@ -2,7 +2,7 @@
 * Autor............: Juan Prado Da Silva
 * Matricula........: 202310291
 * Inicio...........: 06/10/2026
-* Ultima alteracao.: 06/10/2026
+* Ultima alteracao.: 07/10/2026
 * Nome.............: ResultsTable.java
 * Funcao...........: Tabela JavaFX com 4 linhas fixas (V1 a V4) para
 *                    exibir resultados por versao: ultima execucao,
@@ -24,6 +24,7 @@ import javafx.collections.ObservableList;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableRow;
 import javafx.scene.control.TableView;
 import util.Statistics;
 
@@ -53,7 +54,7 @@ public final class ResultsTable {
     private final RowData[] rows = new RowData[4];
     private final ObservableList<RowData> items = FXCollections.observableArrayList();
     private final TableView<RowData> table = new TableView<RowData>();
-    private final Button clearButton = new Button("Limpar");
+    private final Button clearButton = new Button("LIMPAR");
 
     /* ***************************************************************
     * Metodo: ResultsTable
@@ -70,53 +71,110 @@ public final class ResultsTable {
         table.setItems(items);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
-        TableColumn<RowData, String> colVersion = new TableColumn<RowData, String>("Versao");
+        TableColumn<RowData, String> colVersion = new TableColumn<RowData, String>("VERSAO");
         colVersion.setCellValueFactory(cell -> new SimpleStringProperty("V" + cell.getValue().version));
 
-        TableColumn<RowData, Long> colLast = new TableColumn<RowData, Long>("Ultima");
+        TableColumn<RowData, Long> colLast = new TableColumn<RowData, Long>("ULTIMA");
         colLast.setCellValueFactory(cell -> new SimpleLongProperty(cell.getValue().lastSnapshot).asObject());
+        colLast.setCellFactory(col -> new TableCellMonospace());
 
         TableColumn<RowData, Integer> colN = new TableColumn<RowData, Integer>("N");
         colN.setCellValueFactory(cell -> new SimpleIntegerProperty(cell.getValue().samples.size()).asObject());
+        colN.setCellFactory(col -> new TableCellMonospace());
 
-        TableColumn<RowData, Double> colMean = new TableColumn<RowData, Double>("Media");
+        TableColumn<RowData, Double> colMean = new TableColumn<RowData, Double>("MEDIA");
         colMean.setCellValueFactory(cell -> {
             double m = Statistics.mean(cell.getValue().samples);
             return new ReadOnlyObjectWrapper<Double>(m);
         });
+        colMean.setCellFactory(col -> new TableCellMonospace());
 
-        TableColumn<RowData, Double> colStdDev = new TableColumn<RowData, Double>("Desvio");
+        TableColumn<RowData, Double> colStdDev = new TableColumn<RowData, Double>("DESVIO");
         colStdDev.setCellValueFactory(cell -> {
             double s = Statistics.standardDeviation(cell.getValue().samples);
             return new ReadOnlyObjectWrapper<Double>(s);
         });
+        colStdDev.setCellFactory(col -> new TableCellMonospace());
 
-        TableColumn<RowData, Long> colMin = new TableColumn<RowData, Long>("Min");
+        TableColumn<RowData, Long> colMin = new TableColumn<RowData, Long>("MIN");
         colMin.setCellValueFactory(cell -> {
             List<Long> s = cell.getValue().samples;
             long v = (s.isEmpty()) ? 0 : Collections.min(s);
             return new SimpleLongProperty(v).asObject();
         });
+        colMin.setCellFactory(col -> new TableCellMonospace());
 
-        TableColumn<RowData, Long> colMax = new TableColumn<RowData, Long>("Max");
+        TableColumn<RowData, Long> colMax = new TableColumn<RowData, Long>("MAX");
         colMax.setCellValueFactory(cell -> {
             List<Long> s = cell.getValue().samples;
             long v = (s.isEmpty()) ? 0 : Collections.max(s);
             return new SimpleLongProperty(v).asObject();
         });
+        colMax.setCellFactory(col -> new TableCellMonospace());
 
-        TableColumn<RowData, Integer> colUnreachable = new TableColumn<RowData, Integer>("Inalcancaveis");
+        TableColumn<RowData, Integer> colUnreachable = new TableColumn<RowData, Integer>("INALCANCAVEIS");
         colUnreachable.setCellValueFactory(cell -> new SimpleIntegerProperty(cell.getValue().unreachable).asObject());
+        colUnreachable.setCellFactory(col -> new TableCellMonospace());
 
-        TableColumn<RowData, Integer> colAborted = new TableColumn<RowData, Integer>("Abortadas");
+        TableColumn<RowData, Integer> colAborted = new TableColumn<RowData, Integer>("ABORTADAS");
         colAborted.setCellValueFactory(cell -> new SimpleIntegerProperty(cell.getValue().aborted).asObject());
+        colAborted.setCellFactory(col -> new TableCellMonospace());
 
         table.getColumns().addAll(colVersion, colLast, colN, colMean, colStdDev, colMin, colMax, colUnreachable, colAborted);
         table.setFixedCellSize(25.0);
         table.setPrefHeight(4 * 25.0 + 30.0);
 
+        // Zebra striping via row factory
+        table.setRowFactory(tv -> new TableRow<RowData>() {
+            @Override
+            protected void updateItem(RowData item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setStyle("");
+                } else {
+                    int idx = getIndex();
+                    if (idx % 2 == 0) {
+                        setStyle("-fx-background-color: " + Theme.PANEL + ";");
+                    } else {
+                        setStyle("-fx-background-color: " + Theme.HEADER + ";");
+                    }
+                }
+            }
+        });
+
+        // Header style
+        table.getStylesheets().clear();
+        table.setStyle(
+            "-fx-background-color: " + Theme.PANEL + ";" +
+            "-fx-border-color: " + Theme.BORDER + ";" +
+            "-fx-border-width: 1;" +
+            "-fx-border-radius: 0;" +
+            "-fx-background-radius: 0;" +
+            "-fx-font-family: Monospaced;" +
+            "-fx-font-size: 12px;"
+        );
+
+        Theme.styleFlatButtonOutlined(clearButton);
         clearButton.setOnAction(e -> clear());
     }//fim do construtor ResultsTable
+
+    /**
+     * Celula monoespacada com texto amarelo para valores numericos.
+     */
+    private static class TableCellMonospace<S, T> extends javafx.scene.control.TableCell<S, T> {
+        @Override
+        protected void updateItem(T item, boolean empty) {
+            super.updateItem(item, empty);
+            if (empty || item == null) {
+                setText(null);
+                setStyle("");
+            } else {
+                setFont(Theme.FONT_12);
+                setTextFill(javafx.scene.paint.Color.web(Theme.YELLOW));
+                setText(item.toString());
+            }
+        }
+    }
 
     /* ***************************************************************
     * Metodo: addResult

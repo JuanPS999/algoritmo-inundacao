@@ -2,7 +2,7 @@
 * Autor............: Juan Prado Da Silva
 * Matricula........: 202310291
 * Inicio...........: 01/10/2026
-* Ultima alteracao.: 06/10/2026
+* Ultima alteracao.: 07/10/2026
 * Nome.............: ControlPanel
 * Funcao...........: Painel de controle com botoes, seletores e configuracoes
 *************************************************************** */
@@ -71,16 +71,17 @@ public class ControlPanel extends VBox {
   private Label overlayPacketsLabel;
   private Label overlayTimeLabel;
   private Label overlaySnapshotLabel;
+  private Label overlayFinishedLabel;
 
   public ControlPanel(SimulationController controller, Graph graph) {
     this.controller = controller;
     this.graph = graph;
-    getStyleClass().add("control-panel");
     setSpacing(16);
     setPadding(new Insets(12));
     setMinWidth(360);
     setPrefWidth(360);
     setMaxWidth(360);
+    Theme.stylePanel(this);
     build();
   }
 
@@ -104,20 +105,20 @@ public class ControlPanel extends VBox {
     // Abas
     TabPane tabPane = new TabPane();
     tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-    tabPane.getStyleClass().add("control-tabpane");
+    Theme.styleTabPane(tabPane);
 
     // Aba Cenario
-    Tab scenarioTab = new Tab("Cenario");
+    Tab scenarioTab = new Tab("CENARIO");
     scenarioTab.setContent(createScenarioTab());
     tabPane.getTabs().add(scenarioTab);
 
     // Aba Execucao
-    Tab executionTab = new Tab("Execucao");
+    Tab executionTab = new Tab("EXECUCAO");
     executionTab.setContent(createExecutionTab());
     tabPane.getTabs().add(executionTab);
 
     // Aba Resultados
-    Tab resultsTab = new Tab("Resultados");
+    Tab resultsTab = new Tab("RESULTADOS");
     resultsTab.setContent(createResultsTab());
     tabPane.getTabs().add(resultsTab);
 
@@ -133,13 +134,13 @@ public class ControlPanel extends VBox {
   *************************************************************** */
   private VBox createScenarioTab() {
     VBox box = new VBox(12);
-    box.getStyleClass().add("secao");
     box.setPadding(new Insets(12));
     box.setFillWidth(true);
+    Theme.stylePanel(box);
 
     // Versao
-    Label versionLabel = new Label("Versao");
-    versionLabel.getStyleClass().add("secao-titulo");
+    Label versionLabel = new Label("VERSAO");
+    Theme.styleSectionTitle(versionLabel);
     versionCombo = new ComboBox<>();
     versionCombo.getItems().addAll(1, 2, 3, 4);
     versionCombo.setValue(1);
@@ -178,11 +179,12 @@ public class ControlPanel extends VBox {
       }
     });
     versionCombo.setMaxWidth(Double.MAX_VALUE);
+    Theme.styleComboBox(versionCombo);
     versionCombo.setOnAction(e -> controller.onVersionChanged(versionCombo.getValue()));
 
     // Origem
-    Label sourceLabel = new Label("Transmissor");
-    sourceLabel.getStyleClass().add("secao-titulo");
+    Label sourceLabel = new Label("TRANSMISSOR");
+    Theme.styleSectionTitle(sourceLabel);
     sourceCombo = new ComboBox<>();
     for (int i = 1; i <= graph.getNodeCount(); i++) {
       sourceCombo.getItems().add(i);
@@ -200,11 +202,12 @@ public class ControlPanel extends VBox {
         return NodeLabelUtil.fromLabel(s);
       }
     });
+    Theme.styleComboBox(sourceCombo);
     sourceCombo.setOnAction(e -> controller.onSourceChanged(sourceCombo.getValue()));
 
     // Destino
-    Label targetLabel = new Label("Receptor");
-    targetLabel.getStyleClass().add("secao-titulo");
+    Label targetLabel = new Label("RECEPTOR");
+    Theme.styleSectionTitle(targetLabel);
     targetCombo = new ComboBox<>();
     for (int i = 1; i <= graph.getNodeCount(); i++) {
       targetCombo.getItems().add(i);
@@ -222,23 +225,26 @@ public class ControlPanel extends VBox {
         return NodeLabelUtil.fromLabel(s);
       }
     });
+    Theme.styleComboBox(targetCombo);
     targetCombo.setOnAction(e -> controller.onTargetChanged(targetCombo.getValue()));
 
     // TTL
     Label ttlLabel = new Label("TTL");
-    ttlLabel.getStyleClass().add("secao-titulo");
+    Theme.styleSectionTitle(ttlLabel);
     int diameter = graph.diameter();
     ttlSpinner = new Spinner<>(1, 100, diameter);
     ttlSpinner.setEditable(true);
     ttlSpinner.setMaxWidth(Double.MAX_VALUE);
+    Theme.styleSpinner(ttlSpinner);
     ttlSpinner.valueProperty().addListener((obs, o, n) -> controller.onTtlChanged(n));
 
     // Janela V4 (ms)
-    Label windowLabel = new Label("Janela V4 (ms)");
-    windowLabel.getStyleClass().add("secao-titulo");
+    Label windowLabel = new Label("JANELA V4 (MS)");
+    Theme.styleSectionTitle(windowLabel);
     windowSpinner = new Spinner<>(0, 10000, 0);
     windowSpinner.setEditable(true);
     windowSpinner.setMaxWidth(Double.MAX_VALUE);
+    Theme.styleSpinner(windowSpinner);
     windowSpinner.valueProperty().addListener((obs, o, n) -> controller.onWindowChanged(n));
 
     box.getChildren().addAll(
@@ -259,9 +265,9 @@ public class ControlPanel extends VBox {
   *************************************************************** */
   private VBox createExecutionTab() {
     VBox box = new VBox(12);
-    box.getStyleClass().add("secao");
     box.setPadding(new Insets(12));
     box.setFillWidth(true);
+    Theme.stylePanel(box);
 
     // Botoes de controle em GridPane 2x2
     GridPane buttonGrid = new GridPane();
@@ -275,35 +281,39 @@ public class ControlPanel extends VBox {
     col2.setFillWidth(true);
     buttonGrid.getColumnConstraints().addAll(col1, col2);
 
-    startBtn = new Button("Iniciar");
+    startBtn = new Button("INICIAR");
     startBtn.setMaxWidth(Double.MAX_VALUE);
     startBtn.setOnAction(e -> {
       if (onStartCallback != null) onStartCallback.run();
     });
     GridPane.setFillWidth(startBtn, true);
+    Theme.styleFlatButtonFilled(startBtn);
 
-    pauseBtn = new Button("Pausar");
+    pauseBtn = new Button("PAUSAR");
     pauseBtn.setMaxWidth(Double.MAX_VALUE);
     pauseBtn.setOnAction(e -> {
       if (onPauseCallback != null) onPauseCallback.run();
     });
     pauseBtn.setDisable(true);
     GridPane.setFillWidth(pauseBtn, true);
+    Theme.styleFlatButtonOutlined(pauseBtn);
 
-    resetBtn = new Button("Resetar");
+    resetBtn = new Button("RESETAR");
     resetBtn.setMaxWidth(Double.MAX_VALUE);
     resetBtn.setOnAction(e -> {
       if (onResetCallback != null) onResetCallback.run();
     });
     GridPane.setFillWidth(resetBtn, true);
+    Theme.styleFlatButtonOutlined(resetBtn);
 
-    stepBtn = new Button("Proximo evento");
+    stepBtn = new Button("PROXIMO EVENTO");
     stepBtn.setMaxWidth(Double.MAX_VALUE);
     stepBtn.setOnAction(e -> {
       if (onStepCallback != null) onStepCallback.run();
     });
     stepBtn.setDisable(true);
     GridPane.setFillWidth(stepBtn, true);
+    Theme.styleFlatButtonOutlined(stepBtn);
 
     buttonGrid.add(startBtn, 0, 0);
     buttonGrid.add(pauseBtn, 1, 0);
@@ -311,47 +321,52 @@ public class ControlPanel extends VBox {
     buttonGrid.add(stepBtn, 1, 1);
 
     // Velocidade
-    Label speedLabel = new Label("Velocidade");
-    speedLabel.getStyleClass().add("secao-titulo");
+    Label speedLabel = new Label("VELOCIDADE");
+    Theme.styleSectionTitle(speedLabel);
     speedSlider = new Slider(0.25, 10.0, 2.0);
     speedSlider.setShowTickLabels(true);
     speedSlider.setShowTickMarks(true);
     speedSlider.setMajorTickUnit(1.0);
     speedSlider.setMinorTickCount(3);
     speedSlider.setBlockIncrement(0.25);
+    Theme.styleSlider(speedSlider);
     speedSlider.valueProperty().addListener((obs, o, n) -> controller.onSpeedChanged(n.doubleValue()));
 
     // Semente
-    Label seedLabel = new Label("Semente");
-    seedLabel.getStyleClass().add("secao-titulo");
+    Label seedLabel = new Label("SEMENTE");
+    Theme.styleSectionTitle(seedLabel);
     HBox seedBox = new HBox(8);
     seedField = new TextField();
     seedField.setPromptText("Deixe vazio para aleatorio");
     HBox.setHgrow(seedField, Priority.ALWAYS);
-    randomSeedBtn = new Button("Sortear");
+    Theme.styleTextField(seedField);
+    randomSeedBtn = new Button("SORTEAR");
     randomSeedBtn.setOnAction(e -> {
       long seed = System.currentTimeMillis() ^ (long) (Math.random() * 1000000);
       seedField.setText(Long.toString(seed));
       controller.onSeedChanged(seed);
       if (onRandomSeedCallback != null) onRandomSeedCallback.run();
     });
+    Theme.styleFlatButtonOutlined(randomSeedBtn);
     seedBox.getChildren().addAll(seedField, randomSeedBtn);
 
     // Reproducao
-    Label replayLabel = new Label("Reproducao");
-    replayLabel.getStyleClass().add("secao-titulo");
+    Label replayLabel = new Label("REPRODUCAO");
+    Theme.styleSectionTitle(replayLabel);
     HBox replayBox = new HBox(8);
     replayField = new TextField();
     replayField.setEditable(false);
     replayField.setPromptText("Semente usada na ultima execucao");
     HBox.setHgrow(replayField, Priority.ALWAYS);
-    copyReplayBtn = new Button("Copiar");
+    Theme.styleTextField(replayField);
+    copyReplayBtn = new Button("COPIAR");
     copyReplayBtn.setOnAction(e -> {
       javafx.scene.input.Clipboard clipboard = javafx.scene.input.Clipboard.getSystemClipboard();
       javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
       content.putString(replayField.getText());
       clipboard.setContent(content);
     });
+    Theme.styleFlatButtonOutlined(copyReplayBtn);
     replayBox.getChildren().addAll(replayField, copyReplayBtn);
 
     box.getChildren().addAll(
@@ -371,16 +386,17 @@ public class ControlPanel extends VBox {
   *************************************************************** */
   private VBox createResultsTab() {
     VBox box = new VBox(12);
-    box.getStyleClass().add("secao");
     box.setPadding(new Insets(12));
     box.setFillWidth(true);
+    Theme.stylePanel(box);
 
-    Label resultsLabel = new Label("Resultados por versao");
-    resultsLabel.getStyleClass().add("secao-titulo");
+    Label resultsLabel = new Label("RESULTADOS POR VERSAO");
+    Theme.styleSectionTitle(resultsLabel);
 
     // CheckBox escala log
     logScaleCheck = new CheckBox("Escala log");
     logScaleCheck.setSelected(true);
+    Theme.styleCheckBox(logScaleCheck);
     logScaleCheck.setOnAction(e -> controller.onLogScaleChanged(logScaleCheck.isSelected()));
 
     box.getChildren().addAll(resultsLabel, logScaleCheck);
@@ -791,38 +807,58 @@ public class ControlPanel extends VBox {
     switch (estadoAtual) {
       case OCIOSO:
         startBtn.setDisable(false);
+        Theme.styleFlatButtonFilled(startBtn);
         pauseBtn.setDisable(true);
-        pauseBtn.setText("Pausar");
+        pauseBtn.setText("PAUSAR");
+        Theme.styleButtonDisabled(pauseBtn);
         resetBtn.setDisable(true);
+        Theme.styleButtonDisabled(resetBtn);
         stepBtn.setDisable(false);
+        Theme.styleFlatButtonOutlined(stepBtn);
         break;
       case RODANDO:
         startBtn.setDisable(true);
+        Theme.styleButtonDisabled(startBtn);
         pauseBtn.setDisable(false);
-        pauseBtn.setText("Pausar");
+        pauseBtn.setText("PAUSAR");
+        Theme.styleFlatButtonOutlined(pauseBtn);
         resetBtn.setDisable(false);
+        Theme.styleFlatButtonOutlined(resetBtn);
         stepBtn.setDisable(true);
+        Theme.styleButtonDisabled(stepBtn);
         break;
       case PAUSADO:
         startBtn.setDisable(true);
+        Theme.styleButtonDisabled(startBtn);
         pauseBtn.setDisable(false);
-        pauseBtn.setText("Continuar");
+        pauseBtn.setText("CONTINUAR");
+        Theme.styleFlatButtonOutlined(pauseBtn);
         resetBtn.setDisable(false);
+        Theme.styleFlatButtonOutlined(resetBtn);
         stepBtn.setDisable(false);
+        Theme.styleFlatButtonOutlined(stepBtn);
         break;
       case ENCERRADO:
         startBtn.setDisable(false);
+        Theme.styleFlatButtonFilled(startBtn);
         pauseBtn.setDisable(true);
-        pauseBtn.setText("Pausar");
+        pauseBtn.setText("PAUSAR");
+        Theme.styleButtonDisabled(pauseBtn);
         resetBtn.setDisable(false);
+        Theme.styleFlatButtonOutlined(resetBtn);
         stepBtn.setDisable(true);
+        Theme.styleButtonDisabled(stepBtn);
         break;
       case LOTE:
         startBtn.setDisable(true);
+        Theme.styleButtonDisabled(startBtn);
         pauseBtn.setDisable(true);
-        pauseBtn.setText("Pausar");
+        pauseBtn.setText("PAUSAR");
+        Theme.styleButtonDisabled(pauseBtn);
         resetBtn.setDisable(true);
+        Theme.styleButtonDisabled(resetBtn);
         stepBtn.setDisable(true);
+        Theme.styleButtonDisabled(stepBtn);
         break;
     }
   }
@@ -833,8 +869,6 @@ public class ControlPanel extends VBox {
   * Parametros: packets - label de pacotes; time - label de tempo; snapshot - label de snapshot; finished - label de finalizada
   * Retorno: void
   *************************************************************** */
-  private Label overlayFinishedLabel;
-
   public void setOverlayLabels(Label packets, Label time, Label snapshot, Label finished) {
     this.overlayPacketsLabel = packets;
     this.overlayTimeLabel = time;
