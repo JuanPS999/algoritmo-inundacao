@@ -9,6 +9,7 @@
 *                    habilitar/desabilitar links com o clique.
 *                    Fundo e pacotes em Canvas; grade e seta norte.
 *                    Pulso visual de atividade nos nos (Canvas).
+*                    Legenda discreta no canto.
 *************************************************************** */
 package view;
 
@@ -60,12 +61,20 @@ public class GraphPane extends Pane {
     private static final double PULSE_MAX_EXPANSION = 8.0;
     private static final double PULSE_STROKE_WIDTH = 2.5;
 
+    // Legenda: dimensoes e estilo
+    private static final double LEGEND_FONT_SIZE = 12.0;
+    private static final double LEGEND_ITEM_HEIGHT = 18.0;
+    private static final double LEGEND_PADDING = 8.0;
+    private static final double LEGEND_GAP = 6.0;
+    private static final double LEGEND_SYMBOL_SIZE = 14.0;
+
     private Graph graph;
     private final Canvas bgCanvas = new Canvas();
     private final Canvas packetsCanvas = new Canvas();
     private final Canvas pulseCanvas = new Canvas();
     private final Group linksLayer = new Group();
     private final Group nodesLayer = new Group();
+    private final Group legendLayer = new Group();
     private double[] nodeX = new double[0];
     private double[] nodeY = new double[0];
     private double currentHexR = 24.0;
@@ -109,7 +118,8 @@ public class GraphPane extends Pane {
         pulseCanvas.widthProperty().bind(widthProperty());
         pulseCanvas.heightProperty().bind(heightProperty());
         pulseCanvas.setMouseTransparent(true);
-        getChildren().addAll(bgCanvas, linksLayer, nodesLayer, pulseCanvas, packetsCanvas);
+        legendLayer.setMouseTransparent(true);
+        getChildren().addAll(bgCanvas, linksLayer, nodesLayer, pulseCanvas, packetsCanvas, legendLayer);
         widthProperty().addListener((obs, o, n) -> {
             bgNeedsRedraw = true;
             redraw();
@@ -141,6 +151,7 @@ public class GraphPane extends Pane {
         this.sourceId = sourceId;
         this.destinationId = destinationId;
         drawNodes();
+        drawLegend();
     }//fim do metodo setEndpoints
 
     /* ***************************************************************
@@ -290,7 +301,7 @@ public class GraphPane extends Pane {
 
     /* ***************************************************************
     * Metodo: redraw
-    * Funcao: recalcula layout e redesenha fundo, links e nos.
+    * Funcao: recalcula layout e redesenha fundo, links, nos e legenda.
     * Parametros: nenhum
     * Retorno: void
     *************************************************************** */
@@ -299,6 +310,7 @@ public class GraphPane extends Pane {
         drawBackground();
         drawLinks();
         drawNodes();
+        drawLegend();
     }//fim do metodo redraw
 
     /* ***************************************************************
@@ -569,5 +581,135 @@ public class GraphPane extends Pane {
             nodesLayer.getChildren().addAll(hex, label);
         }
     }//fim do metodo drawNodes
+
+    /* ***************************************************************
+    * Metodo: drawLegend
+    * Funcao: desenha legenda compacta no canto inferior direito.
+    *         Itens: TX, RX, cabo ativo, cabo cortado, pacote, pulso.
+    *         Texto 12px monoespacado, baixo contraste, nao interativo.
+    * Parametros: nenhum
+    * Retorno: void
+    *************************************************************** */
+    private void drawLegend() {
+        legendLayer.getChildren().clear();
+
+        double w = getWidth();
+        double h = getHeight();
+        if (w <= 0 || h <= 0) return;
+
+        Font legendFont = Font.font("Monospaced", FontWeight.NORMAL, LEGEND_FONT_SIZE);
+        Color textColor = Theme.TEXT_SECONDARY_COLOR; // baixo contraste
+
+        // Itens da legenda: {cor do simbolo, texto}
+        class LegendItem {
+            Color color;
+            String text;
+            boolean isDashed;
+            boolean isPulse;
+            LegendItem(Color c, String t) { color = c; text = t; isDashed = false; isPulse = false; }
+            LegendItem(Color c, String t, boolean dashed) { color = c; text = t; isDashed = dashed; isPulse = false; }
+            LegendItem(Color c, String t, boolean dashed, boolean pulse) { color = c; text = t; isDashed = dashed; isPulse = pulse; }
+        }
+
+        LegendItem[] items = new LegendItem[] {
+            new LegendItem(Theme.TX_COLOR_OBJ, "TX"),
+            new LegendItem(Theme.RX_COLOR_OBJ, "RX"),
+            new LegendItem(Theme.YELLOW_COLOR, "cabo ativo"),
+            new LegendItem(Theme.INACTIVE_COLOR, "cabo cortado", true),
+            new LegendItem(PACKET_COLOR, "pacote"),
+            new LegendItem(Theme.ORANGE_ACCENT_COLOR, "pulso")
+        };
+
+        // Calcula largura total da legenda
+        double maxTextWidth = 0;
+        for (LegendItem item : items) {
+            Text t = new Text(item.text);
+            t.setFont(legendFont);
+            double tw = t.getLayoutBounds().getWidth();
+            if (tw > maxTextWidth) maxTextWidth = tw;
+        }
+        double legendWidth = LEGEND_PADDING * 2 + LEGEND_SYMBOL_SIZE + LEGEND_GAP + maxTextWidth;
+        double legendHeight = LEGEND_PADDING * 2 + items.length * LEGEND_ITEM_HEIGHT;
+
+        // Posicao: canto inferior direito com margem
+        double margin = 16.0;
+        double startX = w - legendWidth - margin;
+        double startY = h - legendHeight - margin;
+
+        // Fundo semi-transparente
+        Rectangle bg = new Rectangle(startX, startY, legendWidth, legendHeight);
+        bg.setFill(Color.web(Theme.PANEL, 0.85));
+        bg.setStroke(Theme.BORDER_COLOR);
+        bg.setStrokeWidth(1.0);
+        bg.setArcWidth(4.0);
+        bg.setArcHeight(4.0);
+        bg.setMouseTransparent(true);
+        legendLayer.getChildren().add(bg);
+
+        // Itens
+        double y = startY + LEGEND_PADDING + LEGEND_ITEM_HEIGHT * 0.75; // baseline aproximado
+        for (LegendItem item : items) {
+            double symX = startX + LEGEND_PADDING + LEGEND_SYMBOL_SIZE / 2.0;
+            double symY = y - LEGEND_ITEM_HEIGHT / 2.5;
+
+            if (item.isPulse) {
+                // Hexagono contorno laranja (pulso)
+                Polygon p = new Polygon();
+                double pr = LEGEND_SYMBOL_SIZE / 2.0;
+                for (int v = 0; v < 6; v++) {
+                    double angle = Math.toRadians(30 + v * 60);
+                    p.getPoints().addAll(
+                        symX + pr * Math.cos(angle),
+                        symY + pr * Math.sin(angle)
+                    );
+                }
+                p.setFill(null);
+                p.setStroke(item.color);
+                p.setStrokeWidth(2.0);
+                p.setStrokeLineCap(StrokeLineCap.ROUND);
+                p.setMouseTransparent(true);
+                legendLayer.getChildren().add(p);
+            } else if (item.isDashed) {
+                // Linha tracejada cinza
+                Line l = new Line(symX - LEGEND_SYMBOL_SIZE / 2.0, symY, symX + LEGEND_SYMBOL_SIZE / 2.0, symY);
+                l.setStroke(item.color);
+                l.setStrokeWidth(2.5);
+                l.getStrokeDashArray().addAll(6.0, 4.0);
+                l.setMouseTransparent(true);
+                legendLayer.getChildren().add(l);
+                // Pequeno X
+                Line x1 = new Line(symX - 4, symY - 4, symX + 4, symY + 4);
+                Line x2 = new Line(symX - 4, symY + 4, symX + 4, symY - 4);
+                x1.setStroke(Theme.RED_COLOR);
+                x1.setStrokeWidth(1.5);
+                x2.setStroke(Theme.RED_COLOR);
+                x2.setStrokeWidth(1.5);
+                x1.setMouseTransparent(true);
+                x2.setMouseTransparent(true);
+                legendLayer.getChildren().addAll(x1, x2);
+            } else {
+                // Quadrado/retangulo preenchido para TX, RX, cabo ativo, pacote
+                Rectangle r = new Rectangle(symX - LEGEND_SYMBOL_SIZE / 2.0, symY - LEGEND_SYMBOL_SIZE / 3.0, LEGEND_SYMBOL_SIZE, LEGEND_SYMBOL_SIZE * 0.6);
+                r.setFill(item.color);
+                r.setStroke(Theme.BORDER_COLOR);
+                r.setStrokeWidth(1.0);
+                r.setArcWidth(2.0);
+                r.setArcHeight(2.0);
+                r.setMouseTransparent(true);
+                legendLayer.getChildren().add(r);
+            }
+
+            // Texto
+            Text t = new Text(item.text);
+            t.setFont(legendFont);
+            t.setFill(textColor);
+            t.setX(symX + LEGEND_SYMBOL_SIZE / 2.0 + LEGEND_GAP);
+            t.setY(symY + 4.0);
+            t.setMouseTransparent(true);
+            legendLayer.getChildren().add(t);
+
+            y += LEGEND_ITEM_HEIGHT;
+        }
+    }//fim do metodo drawLegend
 
 }//fim da classe GraphPane
