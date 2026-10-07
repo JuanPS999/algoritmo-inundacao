@@ -41,8 +41,8 @@ public class FloodingApp extends Application {
     // Larguras preferidas dos painéis
     private static final double LEFT_PREF_WIDTH = 380.0;
     private static final double LEFT_MIN_WIDTH = 360.0;
-    private static final double RIGHT_PREF_WIDTH = 420.0;
-    private static final double RIGHT_MIN_WIDTH = 360.0;
+    private static final double RIGHT_PREF_WIDTH = 470.0;
+    private static final double RIGHT_MIN_WIDTH = 450.0;
     private static final double GRAPH_MIN_WIDTH = 560.0;
 
     /* ***************************************************************
@@ -79,7 +79,7 @@ public class FloodingApp extends Application {
 
         // Painel direito: tabela + log (com scroll vertical)
         VBox rightPane = new VBox(5, resultsTable.getNode(), eventLogPane);
-        VBox.setVgrow(resultsTable.getNode(), Priority.ALWAYS);
+        VBox.setVgrow(resultsTable.getNode(), Priority.NEVER);
         VBox.setVgrow(eventLogPane, Priority.ALWAYS);
         rightPane.setMinWidth(RIGHT_MIN_WIDTH);
         rightPane.setPrefWidth(RIGHT_PREF_WIDTH);
