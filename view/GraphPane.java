@@ -50,7 +50,7 @@ public class GraphPane extends Pane {
     private static final double LABEL_MAX_SIZE = 20.0;
 
     // Constantes visuais dos pacotes
-    private static final Color PACKET_COLOR = Color.web("#fe8019", 0.85);
+    private static final Color PACKET_COLOR = Color.web(Theme.ORANGE_ACCENT, 0.85);
     private static final int MAX_PACKETS_FOR_TTL = 150;
     private static final double TTL_FONT_SIZE = 12.0;
     private static final double TTL_OFFSET_X = 6.0;
@@ -246,7 +246,7 @@ public class GraphPane extends Pane {
         gc.clearRect(0, 0, w, h);
 
         long now = System.nanoTime();
-        Color pulseColorBase = Color.web("#fe8019");
+        Color pulseColorBase = Theme.ORANGE_ACCENT_COLOR;
 
         for (int i = 0; i < nodeX.length; i++) {
             int nodeId = i + 1;
@@ -264,7 +264,7 @@ public class GraphPane extends Pane {
             double cy = nodeY[i];
             double r = currentHexR + PULSE_MAX_EXPANSION * progress;
             double alpha = 1.0 - progress;
-            gc.setStroke(Color.web("#fe8019", alpha));
+            gc.setStroke(Color.web(Theme.ORANGE_ACCENT, alpha));
             gc.setLineWidth(PULSE_STROKE_WIDTH);
 
             // Desenha hexagono no Canvas
@@ -371,7 +371,7 @@ public class GraphPane extends Pane {
         gc.clearRect(0, 0, w, h);
         gc.setFill(Theme.BG_COLOR);
         gc.fillRect(0, 0, w, h);
-        gc.setStroke(Color.web("#2d2c2b"));
+        gc.setStroke(Theme.GRID_COLOR);
         gc.setLineWidth(0.5);
         for (double x = 0; x <= w; x += GRID_SIZE) {
             gc.strokeLine(x, 0, x, h);

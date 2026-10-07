@@ -161,31 +161,31 @@ public class ControlPanel extends VBox {
     String text;
     switch (state) {
       case "PRONTO":
-        squareColor = Color.web("#665c54");
+        squareColor = Theme.INACTIVE_COLOR;
         text = "PRONTO";
         break;
       case "EXECUTANDO":
-        squareColor = Color.web("#fe8019");
+        squareColor = Theme.ORANGE_ACCENT_COLOR;
         text = "EXECUTANDO";
         break;
       case "PAUSADO":
-        squareColor = Color.web("#d79921");
+        squareColor = Theme.YELLOW_COLOR;
         text = "PAUSADO";
         break;
       case "ENCERRADO":
-        squareColor = Color.web("#a89984");
+        squareColor = Theme.TEXT_SECONDARY_COLOR;
         text = "ENCERRADO";
         break;
       case "ERRO":
-        squareColor = Color.web("#fb4934");
+        squareColor = Theme.RED_COLOR;
         text = "ERRO";
         break;
       case "LOTE":
-        squareColor = Color.web("#458588");
+        squareColor = Theme.RX_COLOR_OBJ;
         text = "LOTE";
         break;
       default:
-        squareColor = Color.web("#665c54");
+        squareColor = Theme.INACTIVE_COLOR;
         text = state;
     }
     statusSquare.setFill(squareColor);

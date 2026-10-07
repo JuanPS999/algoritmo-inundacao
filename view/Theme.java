@@ -65,6 +65,9 @@ public final class Theme {
     /** Receptor (RX): #458588 */
     public static final String RX_COLOR = "#458588";
 
+    /** Grade de fundo: #2d2c2b */
+    public static final String GRID = "#2d2c2b";
+
     // ==================== COMO OBJETOS Color (PARA GraphPane) ====================
 
     public static final Color BG_COLOR = Color.web(BG);
@@ -80,6 +83,8 @@ public final class Theme {
     public static final Color RED_COLOR = Color.web(RED);
     public static final Color TX_COLOR_OBJ = Color.web(TX_COLOR);
     public static final Color RX_COLOR_OBJ = Color.web(RX_COLOR);
+
+    public static final Color GRID_COLOR = Color.web(GRID);
 
     // ==================== ALIASES Color PARA COMPATIBILIDADE (GraphPane) ====================
 
