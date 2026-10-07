@@ -7,7 +7,7 @@
 * Funcao...........: Painel JavaFX que desenha o grafo (nos hexagonais,
 *                    links estilo cabo), pacotes em transito e permite
 *                    habilitar/desabilitar links com o clique.
-*                    Fundo em Canvas com grade e seta norte.
+*                    Fundo e pacotes em Canvas; grade e seta norte.
 *************************************************************** */
 package view;
 
@@ -33,11 +33,11 @@ import model.Simulator;
 
 public class GraphPane extends Pane {
 
-    private static final double PACKET_RADIUS = 6.0;
+    private static final double PACKET_RADIUS = 3.0;
     private static final double MARGIN = 50.0;
     private static final double HIT_WIDTH = 16.0;
     private static final double GRID_SIZE = 40.0;
-    private static final double HEX_GAP = 8.0; // espaco minimo entre hexagonos
+    private static final double HEX_GAP = 8.0;
 
     // Limites de raio do hexagono
     private static final double HEX_R_MIN = 18.0;
@@ -45,11 +45,18 @@ public class GraphPane extends Pane {
     private static final double LABEL_MIN_SIZE = 14.0;
     private static final double LABEL_MAX_SIZE = 20.0;
 
+    // Constantes visuais dos pacotes
+    private static final Color PACKET_COLOR = Color.web("#fe8019", 0.85);
+    private static final int MAX_PACKETS_FOR_TTL = 150;
+    private static final double TTL_FONT_SIZE = 12.0;
+    private static final double TTL_OFFSET_X = 6.0;
+    private static final double TTL_OFFSET_Y = -10.0;
+
     private Graph graph;
     private final Canvas bgCanvas = new Canvas();
+    private final Canvas packetsCanvas = new Canvas();
     private final Group linksLayer = new Group();
     private final Group nodesLayer = new Group();
-    private final Group packetsLayer = new Group();
     private double[] nodeX = new double[0];
     private double[] nodeY = new double[0];
     private double currentHexR = 24.0;
@@ -83,8 +90,10 @@ public class GraphPane extends Pane {
         bgCanvas.widthProperty().bind(widthProperty());
         bgCanvas.heightProperty().bind(heightProperty());
         bgCanvas.setMouseTransparent(true);
-        packetsLayer.setMouseTransparent(true);
-        getChildren().addAll(bgCanvas, linksLayer, nodesLayer, packetsLayer);
+        packetsCanvas.widthProperty().bind(widthProperty());
+        packetsCanvas.heightProperty().bind(heightProperty());
+        packetsCanvas.setMouseTransparent(true);
+        getChildren().addAll(bgCanvas, linksLayer, nodesLayer, packetsCanvas);
         widthProperty().addListener((obs, o, n) -> {
             bgNeedsRedraw = true;
             redraw();
@@ -131,18 +140,28 @@ public class GraphPane extends Pane {
 
     /* ***************************************************************
     * Metodo: showPackets
-    * Funcao: redesenha pacotes em transito interpolados ao longo do link.
-    *         Mostra TTL ao lado quando solicitado (ate 150 pacotes).
+    * Funcao: redesenha pacotes em transito no Canvas unico.
+    *         Cada pacote: ponto raio 3 em #fe8019 alpha 0.85.
+    *         TTL: monoespaçado 12px se <= 150 pacotes e showTtl=true.
     * Parametros: flights = pacotes em transito; virtualTime = relogio virtual
     *             showTtl = true para exibir TTL
     * Retorno: void
     *************************************************************** */
     public void showPackets(List<Simulator.InFlight> flights,
             long virtualTime, boolean showTtl) {
-        packetsLayer.getChildren().clear();
-        if (flights.size() > 150 && showTtl) {
-            showTtl = false;
+        GraphicsContext gc = packetsCanvas.getGraphicsContext2D();
+        double w = getWidth();
+        double h = getHeight();
+        gc.clearRect(0, 0, w, h);
+
+        boolean drawTtl = showTtl && flights.size() <= MAX_PACKETS_FOR_TTL;
+
+        if (drawTtl) {
+            gc.setFont(Font.font("Monospaced", FontWeight.BOLD, TTL_FONT_SIZE));
+            gc.setFill(Theme.TEXT_COLOR);
         }
+        gc.setFill(PACKET_COLOR);
+
         for (Simulator.InFlight flight : flights) {
             Link link = flight.link;
             int fromId = flight.fromNode;
@@ -154,27 +173,32 @@ public class GraphPane extends Pane {
             double fromY = nodeY[fromId - 1];
             double x = fromX + (nodeX[toId - 1] - fromX) * progress;
             double y = fromY + (nodeY[toId - 1] - fromY) * progress;
-            javafx.scene.shape.Circle dot = new javafx.scene.shape.Circle(x, y, PACKET_RADIUS);
-            dot.setFill(Color.ORANGE);
-            dot.setStroke(Color.BLACK);
-            packetsLayer.getChildren().add(dot);
-            if (showTtl) {
-                Text ttlText = new Text(x + 8.0, y - 8.0, "ttl=" + flight.packet.getTtl());
-                ttlText.setFont(Font.font("Monospaced", FontWeight.BOLD, 10));
-                ttlText.setFill(Theme.TEXT_COLOR);
-                packetsLayer.getChildren().add(ttlText);
+
+            // Desenha ponto do pacote
+            gc.fillOval(x - PACKET_RADIUS, y - PACKET_RADIUS,
+                    PACKET_RADIUS * 2.0, PACKET_RADIUS * 2.0);
+
+            // Desenha TTL se aplicavel
+            if (drawTtl) {
+                String ttlText = "ttl=" + flight.packet.getTtl();
+                gc.fillText(ttlText, x + TTL_OFFSET_X, y + TTL_OFFSET_Y);
             }
         }
     }//fim do metodo showPackets
 
     /* ***************************************************************
     * Metodo: clearPackets
-    * Funcao: remove todos os pacotes desenhados.
+    * Funcao: limpa o Canvas de pacotes.
     * Parametros: nenhum
     * Retorno: void
     *************************************************************** */
     public void clearPackets() {
-        packetsLayer.getChildren().clear();
+        GraphicsContext gc = packetsCanvas.getGraphicsContext2D();
+        double w = getWidth();
+        double h = getHeight();
+        if (w > 0 && h > 0) {
+            gc.clearRect(0, 0, w, h);
+        }
     }//fim do metodo clearPackets
 
     /* ***************************************************************
@@ -204,27 +228,20 @@ public class GraphPane extends Pane {
         double centerX = getWidth() / 2.0;
         double centerY = getHeight() / 2.0;
 
-        // Raio disponivel para o circulo dos nos
         double availableRadius = Math.min(getWidth(), getHeight()) / 2.0 - MARGIN;
 
-        // Raio minimo para que hexagonos nao se sobreponham
-        // Distancia entre centros adjacentes = 2 * R * sin(pi/n)
-        // Deve ser >= 2 * HEX_R + HEX_GAP
         double minRadiusForNodes;
         if (count <= 1) {
             minRadiusForNodes = 0;
         } else {
             double angleBetween = Math.PI / count;
-            // Usamos HEX_R_MAX como estimativa inicial para calcular o minimo
             minRadiusForNodes = (HEX_R_MAX + HEX_GAP / 2.0) / Math.sin(angleBetween);
         }
 
         double layoutRadius = Math.max(availableRadius, minRadiusForNodes);
 
-        // Calcula raio do hexagono proporcional ao raio do layout
-        // Quanto maior o layout, maior o hexagono (ate HEX_R_MAX)
         if (layoutRadius > 0) {
-            double ratio = Math.min(1.0, layoutRadius / 300.0); // 300 = referencia
+            double ratio = Math.min(1.0, layoutRadius / 300.0);
             currentHexR = HEX_R_MIN + (HEX_R_MAX - HEX_R_MIN) * ratio;
             currentLabelSize = LABEL_MIN_SIZE + (LABEL_MAX_SIZE - LABEL_MIN_SIZE) * ratio;
         } else {
@@ -255,7 +272,6 @@ public class GraphPane extends Pane {
         gc.clearRect(0, 0, w, h);
         gc.setFill(Theme.BG_COLOR);
         gc.fillRect(0, 0, w, h);
-        // Grade fina
         gc.setStroke(Color.web("#2d2c2b"));
         gc.setLineWidth(0.5);
         for (double x = 0; x <= w; x += GRID_SIZE) {
@@ -264,7 +280,6 @@ public class GraphPane extends Pane {
         for (double y = 0; y <= h; y += GRID_SIZE) {
             gc.strokeLine(0, y, w, y);
         }
-        // Seta norte (canto superior esquerdo)
         double cx = 40.0;
         double cy = 40.0;
         double s = 12.0;
@@ -289,30 +304,26 @@ public class GraphPane extends Pane {
     *************************************************************** */
     private void drawLinks() {
         linksLayer.getChildren().clear();
-        Color outerColor = Theme.BORDER_COLOR;        // #504945 - contorno escuro
-        Color coreColor = Theme.YELLOW_COLOR;         // #d79921 - nucleo claro (amarelo sujo)
-        Color disabledColor = Theme.INACTIVE_COLOR;   // #665c54
+        Color outerColor = Theme.BORDER_COLOR;
+        Color coreColor = Theme.YELLOW_COLOR;
+        Color disabledColor = Theme.INACTIVE_COLOR;
 
-        // PASSO 1: Desenha TODOS os cabos (linhas)
         for (Link link : graph.getLinks()) {
             double x1 = nodeX[link.getA() - 1];
             double y1 = nodeY[link.getA() - 1];
             double x2 = nodeX[link.getB() - 1];
             double y2 = nodeY[link.getB() - 1];
 
-            // Cabo: contorno externo escuro (mais grosso)
             Line outer = new Line(x1, y1, x2, y2);
             outer.setStrokeWidth(7.0);
             outer.setStrokeLineCap(StrokeLineCap.ROUND);
             outer.setMouseTransparent(true);
 
-            // Cabo: nucleo claro (mais fino, por cima)
             Line core = new Line(x1, y1, x2, y2);
             core.setStrokeWidth(3.0);
             core.setStrokeLineCap(StrokeLineCap.ROUND);
             core.setMouseTransparent(true);
 
-            // Area de clique (invisivel, por cima de tudo)
             Line hitArea = new Line(x1, y1, x2, y2);
             hitArea.setStrokeWidth(HIT_WIDTH);
             hitArea.setStroke(Color.TRANSPARENT);
@@ -326,7 +337,6 @@ public class GraphPane extends Pane {
                 outer.getStrokeDashArray().addAll(10.0, 6.0);
                 core.setStroke(disabledColor);
                 core.getStrokeDashArray().addAll(10.0, 6.0);
-                // Marca de corte (X no meio) - vermelho
                 double mx = (x1 + x2) / 2.0;
                 double my = (y1 + y2) / 2.0;
                 double cut = 10.0;
@@ -349,7 +359,6 @@ public class GraphPane extends Pane {
             linksLayer.getChildren().addAll(outer, core, hitArea);
         }
 
-        // PASSO 2: Desenha TODAS as placas de peso por cima dos cabos
         for (Link link : graph.getLinks()) {
             double cx = (nodeX[link.getA() - 1] + nodeX[link.getB() - 1]) / 2.0;
             double cy = (nodeY[link.getA() - 1] + nodeY[link.getB() - 1]) / 2.0;
@@ -408,7 +417,6 @@ public class GraphPane extends Pane {
             double cx = nodeX[i];
             double cy = nodeY[i];
 
-            // Hexagono (ponta para cima)
             Polygon hex = new Polygon();
             for (int v = 0; v < 6; v++) {
                 double angle = Math.toRadians(30 + v * 60);
@@ -417,23 +425,22 @@ public class GraphPane extends Pane {
                     cy + r * Math.sin(angle)
                 );
             }
-            hex.setFill(Theme.HEADER_COLOR); // #3c3836
+            hex.setFill(Theme.HEADER_COLOR);
 
             boolean isDest = destinationReached && id == destinationId;
             if (id == sourceId) {
-                hex.setStroke(Theme.TX_COLOR_OBJ); // #98971a
+                hex.setStroke(Theme.TX_COLOR_OBJ);
             } else if (id == destinationId) {
-                hex.setStroke(Theme.RX_COLOR_OBJ); // #458588
+                hex.setStroke(Theme.RX_COLOR_OBJ);
             } else {
-                hex.setStroke(Theme.TEXT_SECONDARY_COLOR); // #a89984
+                hex.setStroke(Theme.TEXT_SECONDARY_COLOR);
             }
             hex.setStrokeWidth(isDest ? 4.0 : 2.0);
             if (isDest) {
-                hex.setStroke(Theme.ORANGE_ACCENT_COLOR); // #fe8019
+                hex.setStroke(Theme.ORANGE_ACCENT_COLOR);
             }
             hex.setMouseTransparent(true);
 
-            // Rotulo do no
             Text label = new Text(nodes.get(i).getLabel());
             label.setFont(Font.font("Monospaced", FontWeight.BOLD, labelSize));
             label.setFill(Theme.TEXT_COLOR);
@@ -442,11 +449,10 @@ public class GraphPane extends Pane {
             label.setY(cy);
             label.setMouseTransparent(true);
 
-            // Etiqueta TX/RX como placa preenchida
             if (id == sourceId || id == destinationId) {
                 String tagText = (id == sourceId) ? "TX" : "RX";
                 Color tagFill = (id == sourceId) ? Theme.TX_COLOR_OBJ : Theme.RX_COLOR_OBJ;
-                Color tagTextColor = Theme.TEXT_COLOR; // #ebdbb2
+                Color tagTextColor = Theme.TEXT_COLOR;
 
                 Text tag = new Text(tagText);
                 tag.setFont(Font.font("Monospaced", FontWeight.BOLD, tagSize));
@@ -457,7 +463,7 @@ public class GraphPane extends Pane {
                 double trh = th + 2 * tagPadY;
                 Rectangle tagBg = new Rectangle(
                     cx - trw / 2.0,
-                    cy + r + 6.0, // 6px abaixo do hexagono
+                    cy + r + 6.0,
                     trw, trh
                 );
                 tagBg.setFill(tagFill);
