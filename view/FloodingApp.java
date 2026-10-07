@@ -17,7 +17,6 @@ import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
-import javafx.scene.control.Label;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
@@ -68,10 +67,21 @@ public class FloodingApp extends Application {
         BorderPane root = new BorderPane();
         root.setCenter(graphPane);
         root.setLeft(controlPanel);
-        root.setRight(new VBox(5, new Label("Resultados"), resultsTable.getNode(),
-                new Label("Log de Eventos"), eventLogPane));
+        root.setRight(new VBox(5, resultsTable.getNode(), eventLogPane));
         VBox.setVgrow(resultsTable.getNode(), Priority.ALWAYS);
         VBox.setVgrow(eventLogPane, Priority.ALWAYS);
+
+        // Variaveis CSS do tema escuro (Gruvbox) aplicadas na raiz
+        root.setStyle(
+            "-fx-base: #282828;" +
+            "-fx-background: #1d2021;" +
+            "-fx-control-inner-background: #1d2021;" +
+            "-fx-control-inner-background-alt: #282828;" +
+            "-fx-text-base-color: #ebdbb2;" +
+            "-fx-accent: #d65d0e;" +
+            "-fx-focus-color: #fe8019;" +
+            "-fx-faint-focus-color: transparent;"
+        );
 
         Scene scene = new Scene(root, 1200, 800);
         Theme.apply(scene);
