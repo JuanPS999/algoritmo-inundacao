@@ -301,8 +301,188 @@ public final class Theme {
             "-fx-border-color: " + BORDER + ";" +
             "-fx-border-width: 1;" +
             "-fx-border-radius: 0;" +
+            "-fx-background-radius: 0;" +
+            "-fx-tab-min-width: 80;" +
+            "-fx-tab-max-width: 160;"
+        );
+    }
+
+    /**
+     * Aplica estilo a Tab individual (aba).
+     * @param tab Tab a estilizar
+     */
+    public static void styleTab(javafx.scene.control.Tab tab) {
+        tab.setStyle(
+            "-fx-background-color: " + PANEL + ";" +
+            "-fx-border-color: " + BORDER + ";" +
+            "-fx-border-width: 0 1 0 1;" +
+            "-fx-border-radius: 0;" +
+            "-fx-background-radius: 0 0 0 0;" +
+            "-fx-padding: 6 16 6 16;" +
+            "-fx-text-fill: " + TEXT_SECONDARY + ";" +
+            "-fx-font-family: Monospaced;" +
+            "-fx-font-size: 12px;" +
+            "-fx-font-weight: bold;"
+        );
+    }
+
+    /**
+     * Aplica estilo a MenuBar.
+     * @param menuBar MenuBar a estilizar
+     */
+    public static void styleMenuBar(javafx.scene.control.MenuBar menuBar) {
+        menuBar.setStyle(
+            "-fx-background-color: " + PANEL + ";" +
+            "-fx-border-color: " + BORDER + ";" +
+            "-fx-border-width: 0 0 1 0;" +
+            "-fx-border-radius: 0;" +
             "-fx-background-radius: 0;"
         );
+    }
+
+    /**
+     * Aplica estilo a Menu.
+     * @param menu Menu a estilizar
+     */
+    public static void styleMenu(javafx.scene.control.Menu menu) {
+        menu.setStyle(
+            "-fx-background-color: transparent;" +
+            "-fx-text-fill: " + TEXT + ";" +
+            "-fx-font-family: Monospaced;" +
+            "-fx-font-size: 12px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-padding: 6 16 6 16;"
+        );
+    }
+
+    /**
+     * Aplica estilo a MenuItem.
+     * @param item MenuItem a estilizar
+     */
+    public static void styleMenuItem(javafx.scene.control.MenuItem item) {
+        item.setStyle(
+            "-fx-background-color: " + PANEL + ";" +
+            "-fx-text-fill: " + TEXT + ";" +
+            "-fx-font-family: Monospaced;" +
+            "-fx-font-size: 12px;" +
+            "-fx-padding: 6 16 6 16;"
+        );
+    }
+
+    /**
+     * Aplica estilo completo a TableView (ResultsTable).
+     * @param table TableView a estilizar
+     */
+    public static void styleTableView(javafx.scene.control.TableView<?> table) {
+        table.setStyle(
+            "-fx-background-color: " + PANEL + ";" +
+            "-fx-border-color: " + BORDER + ";" +
+            "-fx-border-width: 1;" +
+            "-fx-border-radius: 0;" +
+            "-fx-background-radius: 0;" +
+            "-fx-font-family: Monospaced;" +
+            "-fx-font-size: 12px;" +
+            "-fx-text-fill: " + TEXT + ";" +
+            "-fx-table-cell-border-color: " + BORDER + ";" +
+            "-fx-table-header-border-color: " + BORDER + ";"
+        );
+    }
+
+    /**
+     * Aplica estilo a coluna de TableView (cabecalho).
+     * @param column TableColumn a estilizar
+     */
+    public static void styleTableColumnHeader(javafx.scene.control.TableColumn<?, ?> column) {
+        column.setStyle(
+            "-fx-background-color: " + HEADER + ";" +
+            "-fx-border-color: " + BORDER + ";" +
+            "-fx-border-width: 0 1 1 0;" +
+            "-fx-border-radius: 0;" +
+            "-fx-background-radius: 0;" +
+            "-fx-text-fill: " + TEXT_SECONDARY + ";" +
+            "-fx-font-family: Monospaced;" +
+            "-fx-font-size: 11px;" +
+            "-fx-font-weight: bold;" +
+            "-fx-alignment: CENTER_LEFT;" +
+            "-fx-padding: 4 8 4 8;"
+        );
+    }
+
+    /**
+     * Aplica estilo a ListView (EventLogPane).
+     * @param listView ListView a estilizar
+     */
+    public static void styleListView(javafx.scene.control.ListView<?> listView) {
+        listView.setStyle(
+            "-fx-background-color: " + BG + ";" +
+            "-fx-border-color: " + BORDER + ";" +
+            "-fx-border-width: 1;" +
+            "-fx-border-radius: 0;" +
+            "-fx-background-radius: 0;" +
+            "-fx-control-inner-background: " + BG + ";" +
+            "-fx-font-family: Monospaced;" +
+            "-fx-font-size: 12px;" +
+            "-fx-text-fill: " + TEXT + ";"
+        );
+    }
+
+    /**
+     * Aplica estilo a SplitPane divisores.
+     * @param splitPane SplitPane a estilizar
+     */
+    public static void styleSplitPane(javafx.scene.control.SplitPane splitPane) {
+        splitPane.setStyle(
+            "-fx-background-color: " + BG + ";" +
+            "-fx-border-color: " + BORDER + ";" +
+            "-fx-border-width: 0;" +
+            "-fx-background-radius: 0;"
+        );
+    }
+
+    /**
+     * Aplica estilo a ScrollBar (vertical/horizontal) para tema escuro.
+     * Deve ser aplicado apos o controle ser adicionado a cena (ex: via lookup).
+     * @param control Controle pai que contem a ScrollBar
+     */
+    public static void styleScrollBars(javafx.scene.control.Control control) {
+        String scrollBarStyle =
+            "-fx-background-color: " + BG + ";" +
+            "-fx-background-radius: 0;";
+        String thumbStyle =
+            "-fx-background-color: " + INACTIVE + ";" +
+            "-fx-background-radius: 0;" +
+            "-fx-background-insets: 2;";
+        String trackStyle =
+            "-fx-background-color: transparent;" +
+            "-fx-background-radius: 0;";
+        String incrementStyle =
+            "-fx-background-color: transparent;" +
+            "-fx-background-radius: 0;";
+        String decrementStyle =
+            "-fx-background-color: transparent;" +
+            "-fx-background-radius: 0;";
+
+        control.applyCss();
+        for (javafx.scene.Node node : control.lookupAll(".scroll-bar")) {
+            if (node instanceof javafx.scene.control.ScrollBar) {
+                javafx.scene.control.ScrollBar sb = (javafx.scene.control.ScrollBar) node;
+                sb.setStyle(scrollBarStyle);
+                javafx.scene.Node thumb = sb.lookup(".thumb");
+                if (thumb != null) thumb.setStyle(thumbStyle);
+                javafx.scene.Node track = sb.lookup(".track");
+                if (track != null) track.setStyle(trackStyle);
+                javafx.scene.Node incBtn = sb.lookup(".increment-button");
+                if (incBtn != null) incBtn.setStyle(incrementStyle);
+                javafx.scene.Node decBtn = sb.lookup(".decrement-button");
+                if (decBtn != null) decBtn.setStyle(decrementStyle);
+            }
+        }
+        for (javafx.scene.Node n : control.lookupAll(".scroll-bar:vertical .thumb")) {
+            n.setStyle(thumbStyle);
+        }
+        for (javafx.scene.Node n : control.lookupAll(".scroll-bar:horizontal .thumb")) {
+            n.setStyle(thumbStyle);
+        }
     }
 
     /**

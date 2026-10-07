@@ -133,10 +133,11 @@ public final class ResultsTable {
                     setStyle("");
                 } else {
                     int idx = getIndex();
-                    if (idx % 2 == 0) {
-                        setStyle("-fx-background-color: " + Theme.PANEL + ";");
+                    String baseColor = (idx % 2 == 0) ? Theme.PANEL : Theme.HEADER;
+                    if (isSelected()) {
+                        setStyle("-fx-background-color: " + Theme.ORANGE_FILL + "; -fx-text-fill: " + Theme.BG + ";");
                     } else {
-                        setStyle("-fx-background-color: " + Theme.HEADER + ";");
+                        setStyle("-fx-background-color: " + baseColor + "; -fx-text-fill: " + Theme.TEXT + ";");
                     }
                 }
             }
@@ -144,15 +145,19 @@ public final class ResultsTable {
 
         // Header style
         table.getStylesheets().clear();
-        table.setStyle(
-            "-fx-background-color: " + Theme.PANEL + ";" +
-            "-fx-border-color: " + Theme.BORDER + ";" +
-            "-fx-border-width: 1;" +
-            "-fx-border-radius: 0;" +
-            "-fx-background-radius: 0;" +
-            "-fx-font-family: Monospaced;" +
-            "-fx-font-size: 12px;"
-        );
+        Theme.styleTableView(table);
+
+        // Aplicar estilo aos cabecalhos das colunas
+        for (TableColumn<RowData, ?> col : table.getColumns()) {
+            Theme.styleTableColumnHeader(col);
+        }
+
+        // Estilizar scrollbars quando a cena estiver disponivel
+        table.sceneProperty().addListener((obs, oldScene, newScene) -> {
+            if (newScene != null) {
+                Theme.styleScrollBars(table);
+            }
+        });
 
         Theme.styleFlatButtonOutlined(clearButton);
         clearButton.setOnAction(e -> clear());
@@ -160,6 +165,7 @@ public final class ResultsTable {
 
     /**
      * Celula monoespacada com texto amarelo para valores numericos.
+     * Respeita selecao de linha (fundo laranja, texto escuro).
      */
     private static class TableCellMonospace<S, T> extends javafx.scene.control.TableCell<S, T> {
         @Override
@@ -170,8 +176,27 @@ public final class ResultsTable {
                 setStyle("");
             } else {
                 setFont(Theme.FONT_12);
-                setTextFill(javafx.scene.paint.Color.web(Theme.YELLOW));
                 setText(item.toString());
+                // Cor do texto: amarelo para normal, fundo escuro para selecao
+                TableRow<S> row = getTableRow();
+                if (row != null && row.isSelected()) {
+                    setTextFill(javafx.scene.paint.Color.web(Theme.BG));
+                } else {
+                    setTextFill(javafx.scene.paint.Color.web(Theme.YELLOW));
+                }
+            }
+        }
+
+        @Override
+        public void updateSelected(boolean selected) {
+            super.updateSelected(selected);
+            // Atualiza cor do texto quando selecao muda
+            if (!isEmpty() && getItem() != null) {
+                if (selected) {
+                    setTextFill(javafx.scene.paint.Color.web(Theme.BG));
+                } else {
+                    setTextFill(javafx.scene.paint.Color.web(Theme.YELLOW));
+                }
             }
         }
     }

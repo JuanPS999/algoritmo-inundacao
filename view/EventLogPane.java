@@ -47,17 +47,7 @@ public class EventLogPane extends VBox {
 
         listView.setPrefHeight(150.0);
         VBox.setVgrow(listView, Priority.ALWAYS);
-        listView.setStyle(
-            "-fx-background-color: " + Theme.BG + ";" +
-            "-fx-border-color: " + Theme.BORDER + ";" +
-            "-fx-border-width: 1;" +
-            "-fx-border-radius: 0;" +
-            "-fx-background-radius: 0;" +
-            "-fx-font-family: Monospaced;" +
-            "-fx-font-size: 11px;" +
-            "-fx-text-fill: " + Theme.TEXT + ";" +
-            "-fx-control-inner-background: " + Theme.BG + ";"
-        );
+        Theme.styleListView(listView);
         // Forca celulas monoespacadas
         listView.setCellFactory(lv -> new javafx.scene.control.ListCell<String>() {
             @Override
@@ -70,6 +60,13 @@ public class EventLogPane extends VBox {
                     setTextFill(javafx.scene.paint.Color.web(Theme.TEXT));
                     setText(item);
                 }
+            }
+        });
+
+        // Estilizar scrollbars quando a cena estiver disponivel
+        listView.sceneProperty().addListener((obs, oldScene, newScene) -> {
+            if (newScene != null) {
+                Theme.styleScrollBars(listView);
             }
         });
 

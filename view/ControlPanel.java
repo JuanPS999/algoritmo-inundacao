@@ -128,18 +128,28 @@ public class ControlPanel extends VBox {
     tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
     Theme.styleTabPane(tabPane);
 
+    // Estilizar scrollbars do TabPane quando a cena estiver disponivel
+    tabPane.sceneProperty().addListener((obs, oldScene, newScene) -> {
+        if (newScene != null) {
+            Theme.styleScrollBars(tabPane);
+        }
+    });
+
     // Aba Cenario
     Tab scenarioTab = new Tab("CENARIO");
+    Theme.styleTab(scenarioTab);
     scenarioTab.setContent(createScenarioTab());
     tabPane.getTabs().add(scenarioTab);
 
     // Aba Execucao
     Tab executionTab = new Tab("EXECUCAO");
+    Theme.styleTab(executionTab);
     executionTab.setContent(createExecutionTab());
     tabPane.getTabs().add(executionTab);
 
     // Aba Resultados
     Tab resultsTab = new Tab("RESULTADOS");
+    Theme.styleTab(resultsTab);
     resultsTab.setContent(createResultsTab());
     tabPane.getTabs().add(resultsTab);
 
@@ -252,20 +262,49 @@ public class ControlPanel extends VBox {
     Label sourceLabel = new Label("TRANSMISSOR");
     Theme.styleSectionTitle(sourceLabel);
     sourceCombo = new ComboBox<>();
-    for (int i = 1; i <= graph.getNodeCount(); i++) {
+    // 8 opcoes: 0->A, 1->B, 2->C, 3->D, 4->E, 5->F, 6->G, 7->H
+    for (int i = 0; i < 8; i++) {
       sourceCombo.getItems().add(i);
     }
-    sourceCombo.setValue(1);
+    sourceCombo.setValue(0); // 0 -> A
     sourceCombo.setMaxWidth(Double.MAX_VALUE);
     sourceCombo.setConverter(new StringConverter<Integer>() {
       @Override
       public String toString(Integer id) {
-        return id == null ? "" : NodeLabelUtil.toLabel(id);
+        if (id == null) {
+          return "";
+        }
+        // Mapeamento 0-based: 0->A, 1->B, 2->C, 3->D, 4->E, 5->F, 6->G, 7->H
+        switch (id) {
+          case 0: return "A";
+          case 1: return "B";
+          case 2: return "C";
+          case 3: return "D";
+          case 4: return "E";
+          case 5: return "F";
+          case 6: return "G";
+          case 7: return "H";
+          default: return id.toString();
+        }
       }
 
       @Override
       public Integer fromString(String s) {
-        return NodeLabelUtil.fromLabel(s);
+        if (s == null || s.isEmpty()) {
+          return null;
+        }
+        // Converte letra para valor 0-based: A->0, B->1, ..., H->7
+        switch (s) {
+          case "A": return 0;
+          case "B": return 1;
+          case "C": return 2;
+          case "D": return 3;
+          case "E": return 4;
+          case "F": return 5;
+          case "G": return 6;
+          case "H": return 7;
+          default: return null;
+        }
       }
     });
     Theme.styleComboBox(sourceCombo);
@@ -275,20 +314,49 @@ public class ControlPanel extends VBox {
     Label targetLabel = new Label("RECEPTOR");
     Theme.styleSectionTitle(targetLabel);
     targetCombo = new ComboBox<>();
-    for (int i = 1; i <= graph.getNodeCount(); i++) {
+    // 8 opcoes: 0->A, 1->B, 2->C, 3->D, 4->E, 5->F, 6->G, 7->H
+    for (int i = 0; i < 8; i++) {
       targetCombo.getItems().add(i);
     }
-    targetCombo.setValue(graph.getNodeCount());
+    targetCombo.setValue(7); // 7 -> H
     targetCombo.setMaxWidth(Double.MAX_VALUE);
     targetCombo.setConverter(new StringConverter<Integer>() {
       @Override
       public String toString(Integer id) {
-        return id == null ? "" : NodeLabelUtil.toLabel(id);
+        if (id == null) {
+          return "";
+        }
+        // Mapeamento 0-based: 0->A, 1->B, 2->C, 3->D, 4->E, 5->F, 6->G, 7->H
+        switch (id) {
+          case 0: return "A";
+          case 1: return "B";
+          case 2: return "C";
+          case 3: return "D";
+          case 4: return "E";
+          case 5: return "F";
+          case 6: return "G";
+          case 7: return "H";
+          default: return id.toString();
+        }
       }
 
       @Override
       public Integer fromString(String s) {
-        return NodeLabelUtil.fromLabel(s);
+        if (s == null || s.isEmpty()) {
+          return null;
+        }
+        // Converte letra para valor 0-based: A->0, B->1, ..., H->7
+        switch (s) {
+          case "A": return 0;
+          case "B": return 1;
+          case "C": return 2;
+          case "D": return 3;
+          case "E": return 4;
+          case "F": return 5;
+          case "G": return 6;
+          case "H": return 7;
+          default: return null;
+        }
       }
     });
     Theme.styleComboBox(targetCombo);
@@ -488,7 +556,10 @@ public class ControlPanel extends VBox {
   * Retorno: int - id do no
   *************************************************************** */
   public int getSourceId() {
-    return sourceCombo.getValue();
+    Integer val = sourceCombo.getValue();
+    if (val == null) return 1;
+    // Converte 0-based para 1-based (grafo usa ids 1..N)
+    return val + 1;
   }
 
   /* ***************************************************************
@@ -498,7 +569,10 @@ public class ControlPanel extends VBox {
   * Retorno: int - id do no
   *************************************************************** */
   public int getDestinationId() {
-    return targetCombo.getValue();
+    Integer val = targetCombo.getValue();
+    if (val == null) return 1;
+    // Converte 0-based para 1-based (grafo usa ids 1..N)
+    return val + 1;
   }
 
   /* ***************************************************************

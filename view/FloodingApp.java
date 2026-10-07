@@ -93,18 +93,24 @@ public class FloodingApp extends Application {
 
         // SplitPane com 3 painéis: controles | grafo | resultados+log
         SplitPane splitPane = new SplitPane();
+        Theme.styleSplitPane(splitPane);
         splitPane.setDividerPositions(0.2, 0.55);
         splitPane.getItems().addAll(controlPanel, graphPane, rightPane);
 
         // MenuBar com Arquivo e Ajuda (inclui Sobre)
         MenuBar menuBar = new MenuBar();
+        Theme.styleMenuBar(menuBar);
         Menu fileMenu = new Menu("ARQUIVO");
+        Theme.styleMenu(fileMenu);
         MenuItem exitItem = new MenuItem("SAIR");
+        Theme.styleMenuItem(exitItem);
         exitItem.setOnAction(e -> Platform.exit());
         fileMenu.getItems().add(exitItem);
 
         Menu helpMenu = new Menu("AJUDA");
+        Theme.styleMenu(helpMenu);
         MenuItem aboutItem = new MenuItem("SOBRE");
+        Theme.styleMenuItem(aboutItem);
         aboutItem.setOnAction(e -> AboutDialog.show());
         helpMenu.getItems().add(aboutItem);
 
@@ -128,6 +134,14 @@ public class FloodingApp extends Application {
 
         Scene scene = new Scene(root, 1280, 760);
         Theme.apply(scene);
+
+        // Estilizar scrollbars do SplitPane apos a cena ser definida
+        splitPane.sceneProperty().addListener((obs, oldScene, newScene) -> {
+            if (newScene != null) {
+                Theme.styleScrollBars(splitPane);
+            }
+        });
+
         primaryStage.setTitle("Roteamento por Inundacao");
         primaryStage.setScene(scene);
         primaryStage.setMinWidth(1100);
