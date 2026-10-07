@@ -266,6 +266,7 @@ public class SimulationController {
             public void onArrive(long time, int nodeId, Link link,
                     Packet packet, long counter) {
                 addLogLine(formatArrive(time, nodeId, link, packet, counter));
+                graphPane.pulse(nodeId);
             }
 
             @Override
@@ -334,6 +335,7 @@ public class SimulationController {
                 public void onArrive(long time, int nodeId, Link link,
                         Packet packet, long counter) {
                     addLogLine(formatArrive(time, nodeId, link, packet, counter));
+                    graphPane.pulse(nodeId);
                 }
 
                 @Override
