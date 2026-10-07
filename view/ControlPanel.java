@@ -520,9 +520,10 @@ public class ControlPanel extends VBox {
     speedSlider = new Slider(0.25, 10.0, 2.0);
     speedSlider.setShowTickLabels(true);
     speedSlider.setShowTickMarks(true);
-    speedSlider.setMajorTickUnit(1.0);
-    speedSlider.setMinorTickCount(3);
+    speedSlider.setMajorTickUnit(2.0);
+    speedSlider.setMinorTickCount(7);
     speedSlider.setBlockIncrement(0.25);
+    speedSlider.setSnapToTicks(false);
     Theme.styleSlider(speedSlider);
     speedSlider.valueProperty().addListener((obs, o, n) -> controller.onSpeedChanged(n.doubleValue()));
 
@@ -531,7 +532,7 @@ public class ControlPanel extends VBox {
     Theme.styleSectionTitle(seedLabel);
     HBox seedBox = new HBox(8);
     seedField = new TextField();
-    seedField.setPromptText("Deixe vazio para aleatorio");
+    seedField.setPromptText("ALEATORIA");
     HBox.setHgrow(seedField, Priority.ALWAYS);
     Theme.styleTextField(seedField);
     randomSeedBtn = new Button("SORTEAR");
@@ -550,7 +551,7 @@ public class ControlPanel extends VBox {
     HBox replayBox = new HBox(8);
     replayField = new TextField();
     replayField.setEditable(false);
-    replayField.setPromptText("Semente usada na ultima execucao");
+    replayField.setPromptText("ULTIMA");
     HBox.setHgrow(replayField, Priority.ALWAYS);
     Theme.styleTextField(replayField);
     copyReplayBtn = new Button("COPIAR");
