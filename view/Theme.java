@@ -491,6 +491,7 @@ public final class Theme {
      */
     public static void apply(javafx.scene.Scene scene) {
         scene.setFill(Color.web(BG));
-        scene.getRoot().setStyle("-fx-background-color: " + BG + ";");
+        String existing = scene.getRoot().getStyle();
+        scene.getRoot().setStyle((existing == null || existing.isEmpty() ? "" : existing + ";") + "-fx-background-color: " + BG + ";");
     }
 }//fim da classe Theme
