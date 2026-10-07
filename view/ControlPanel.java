@@ -19,9 +19,9 @@ import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
 import javafx.scene.control.Spinner;
 import javafx.scene.control.SpinnerValueFactory;
-import javafx.scene.control.Tab;
-import javafx.scene.control.TabPane;
 import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -87,9 +87,9 @@ public class ControlPanel extends VBox {
     this.graph = graph;
     setSpacing(16);
     setPadding(new Insets(12));
-    setMinWidth(360);
-    setPrefWidth(360);
-    setMaxWidth(360);
+    setMinWidth(320);
+    setPrefWidth(320);
+    setMaxWidth(320);
     Theme.stylePanel(this);
     build();
     // Estado inicial: PRONTO
@@ -123,38 +123,75 @@ public class ControlPanel extends VBox {
     StackPane.setMargin(statusText, new Insets(0, 0, 0, 18));
     getChildren().add(statusIndicator);
 
-    // Abas
-    TabPane tabPane = new TabPane();
-    tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-    Theme.styleTabPane(tabPane);
+    // Toggle buttons para selecao de aba (substitui TabPane header)
+    ToggleGroup tabGroup = new ToggleGroup();
+    HBox tabBar = new HBox();
+    tabBar.setFillHeight(true);
+    tabBar.setSpacing(0);
 
-    // Estilizar scrollbars do TabPane quando a cena estiver disponivel
-    tabPane.sceneProperty().addListener((obs, oldScene, newScene) -> {
-        if (newScene != null) {
-            Theme.styleScrollBars(tabPane);
-        }
+    // Criar conteudos das tres abas
+    VBox scenarioContent = createScenarioTab();
+    VBox executionContent = createExecutionTab();
+    VBox resultsContent = createResultsTab();
+
+    // StackPane para alternar conteudos
+    StackPane contentStack = new StackPane();
+    contentStack.getChildren().addAll(scenarioContent, executionContent, resultsContent);
+    scenarioContent.setVisible(true);
+    scenarioContent.setManaged(true);
+    executionContent.setVisible(false);
+    executionContent.setManaged(false);
+    resultsContent.setVisible(false);
+    resultsContent.setManaged(false);
+
+    // ToggleButton CENARIO
+    ToggleButton scenarioBtn = new ToggleButton("CENARIO");
+    scenarioBtn.setToggleGroup(tabGroup);
+    scenarioBtn.setSelected(true);
+    scenarioBtn.setMaxWidth(Double.MAX_VALUE);
+    HBox.setHgrow(scenarioBtn, Priority.ALWAYS);
+    Theme.styleToggleButton(scenarioBtn, true);
+
+    // ToggleButton EXECUCAO
+    ToggleButton executionBtn = new ToggleButton("EXECUCAO");
+    executionBtn.setToggleGroup(tabGroup);
+    executionBtn.setMaxWidth(Double.MAX_VALUE);
+    HBox.setHgrow(executionBtn, Priority.ALWAYS);
+    Theme.styleToggleButton(executionBtn, false);
+
+    // ToggleButton RESULTADOS
+    ToggleButton resultsBtn = new ToggleButton("RESULTADOS");
+    resultsBtn.setToggleGroup(tabGroup);
+    resultsBtn.setMaxWidth(Double.MAX_VALUE);
+    HBox.setHgrow(resultsBtn, Priority.ALWAYS);
+    Theme.styleToggleButton(resultsBtn, false);
+
+    tabBar.getChildren().addAll(scenarioBtn, executionBtn, resultsBtn);
+
+    // Listener para troca de aba
+    tabGroup.selectedToggleProperty().addListener((obs, oldToggle, newToggle) -> {
+        boolean isScenario = newToggle == scenarioBtn;
+        boolean isExecution = newToggle == executionBtn;
+        boolean isResults = newToggle == resultsBtn;
+
+        scenarioContent.setVisible(isScenario);
+        scenarioContent.setManaged(isScenario);
+        executionContent.setVisible(isExecution);
+        executionContent.setManaged(isExecution);
+        resultsContent.setVisible(isResults);
+        resultsContent.setManaged(isResults);
+
+        Theme.styleToggleButton(scenarioBtn, isScenario);
+        Theme.styleToggleButton(executionBtn, isExecution);
+        Theme.styleToggleButton(resultsBtn, isResults);
     });
 
-    // Aba Cenario
-    Tab scenarioTab = new Tab("CENARIO");
-    Theme.styleTab(scenarioTab);
-    scenarioTab.setContent(createScenarioTab());
-    tabPane.getTabs().add(scenarioTab);
+    // Container das abas (barra + conteudo)
+    VBox tabsContainer = new VBox(tabBar, contentStack);
+    VBox.setVgrow(contentStack, Priority.ALWAYS);
 
-    // Aba Execucao
-    Tab executionTab = new Tab("EXECUCAO");
-    Theme.styleTab(executionTab);
-    executionTab.setContent(createExecutionTab());
-    tabPane.getTabs().add(executionTab);
-
-    // Aba Resultados
-    Tab resultsTab = new Tab("RESULTADOS");
-    Theme.styleTab(resultsTab);
-    resultsTab.setContent(createResultsTab());
-    tabPane.getTabs().add(resultsTab);
-
-    getChildren().add(tabPane);
-    VBox.setVgrow(tabPane, Priority.ALWAYS);
+    getChildren().add(tabsContainer);
+    VBox.setVgrow(tabsContainer, Priority.ALWAYS);
   }
 
   /* ***************************************************************

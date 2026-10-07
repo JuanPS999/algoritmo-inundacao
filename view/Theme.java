@@ -440,6 +440,43 @@ public final class Theme {
     }
 
     /**
+     * Aplica estilo a ToggleButton para abas do painel de controle.
+     * @param btn ToggleButton a estilizar
+     * @param selected true se deve aplicar estilo de selecionado
+     */
+    public static void styleToggleButton(javafx.scene.control.ToggleButton btn, boolean selected) {
+        if (selected) {
+            btn.setStyle(
+                "-fx-background-color: " + ORANGE_FILL + ";" +
+                "-fx-text-fill: " + BG + ";" +
+                "-fx-border-color: " + BORDER + ";" +
+                "-fx-border-width: 0 1 0 1;" +
+                "-fx-border-radius: 0;" +
+                "-fx-background-radius: 0;" +
+                "-fx-padding: 6 16 6 16;" +
+                "-fx-font-family: Monospaced;" +
+                "-fx-font-size: 12px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-cursor: hand;"
+            );
+        } else {
+            btn.setStyle(
+                "-fx-background-color: " + HEADER + ";" +
+                "-fx-text-fill: " + TEXT + ";" +
+                "-fx-border-color: " + BORDER + ";" +
+                "-fx-border-width: 0 1 0 1;" +
+                "-fx-border-radius: 0;" +
+                "-fx-background-radius: 0;" +
+                "-fx-padding: 6 16 6 16;" +
+                "-fx-font-family: Monospaced;" +
+                "-fx-font-size: 12px;" +
+                "-fx-font-weight: bold;" +
+                "-fx-cursor: hand;"
+            );
+        }
+    }
+
+    /**
      * Aplica estilo a ScrollBar (vertical/horizontal) para tema escuro.
      * Deve ser aplicado apos o controle ser adicionado a cena (ex: via lookup).
      * @param control Controle pai que contem a ScrollBar
