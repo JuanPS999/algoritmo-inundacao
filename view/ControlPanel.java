@@ -26,6 +26,7 @@ import javafx.scene.layout.ColumnConstraints;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
@@ -77,6 +78,14 @@ public class ControlPanel extends VBox {
   private Label overlaySnapshotLabel;
   private Label overlayFinishedLabel;
 
+  // Labels da secao MEDICAO (sempre visiveis)
+  private Label measEstadoLabel;
+  private Label measConfigLabel;
+  private Label measPacotesLabel;
+  private Label measTempoLabel;
+  private Label measEmTransitoLabel;
+  private Label measDestinoLabel;
+
   // Indicador de estado (quadrado + texto)
   private final StackPane statusIndicator = new StackPane();
   private final Rectangle statusSquare = new Rectangle(14, 14);
@@ -85,11 +94,11 @@ public class ControlPanel extends VBox {
   public ControlPanel(SimulationController controller, Graph graph) {
     this.controller = controller;
     this.graph = graph;
-    setSpacing(16);
+    setSpacing(12);
     setPadding(new Insets(12));
-    setMinWidth(320);
-    setPrefWidth(320);
-    setMaxWidth(320);
+    setMinWidth(360);
+    setPrefWidth(380);
+    setMaxWidth(380);
     Theme.stylePanel(this);
     build();
     // Estado inicial: PRONTO
@@ -149,6 +158,8 @@ public class ControlPanel extends VBox {
     scenarioBtn.setToggleGroup(tabGroup);
     scenarioBtn.setSelected(true);
     scenarioBtn.setMaxWidth(Double.MAX_VALUE);
+    scenarioBtn.setMinWidth(Region.USE_PREF_SIZE);
+    scenarioBtn.setPadding(new Insets(6, 8, 6, 8));
     HBox.setHgrow(scenarioBtn, Priority.ALWAYS);
     Theme.styleToggleButton(scenarioBtn, true);
 
@@ -156,6 +167,8 @@ public class ControlPanel extends VBox {
     ToggleButton executionBtn = new ToggleButton("EXECUCAO");
     executionBtn.setToggleGroup(tabGroup);
     executionBtn.setMaxWidth(Double.MAX_VALUE);
+    executionBtn.setMinWidth(Region.USE_PREF_SIZE);
+    executionBtn.setPadding(new Insets(6, 8, 6, 8));
     HBox.setHgrow(executionBtn, Priority.ALWAYS);
     Theme.styleToggleButton(executionBtn, false);
 
@@ -163,6 +176,8 @@ public class ControlPanel extends VBox {
     ToggleButton resultsBtn = new ToggleButton("RESULTADOS");
     resultsBtn.setToggleGroup(tabGroup);
     resultsBtn.setMaxWidth(Double.MAX_VALUE);
+    resultsBtn.setMinWidth(Region.USE_PREF_SIZE);
+    resultsBtn.setPadding(new Insets(6, 8, 6, 8));
     HBox.setHgrow(resultsBtn, Priority.ALWAYS);
     Theme.styleToggleButton(resultsBtn, false);
 
@@ -192,6 +207,10 @@ public class ControlPanel extends VBox {
 
     getChildren().add(tabsContainer);
     VBox.setVgrow(tabsContainer, Priority.ALWAYS);
+
+    // Sessao MEDICAO (sempre visivel, abaixo das abas)
+    VBox measurementSection = createMeasurementSection();
+    getChildren().add(measurementSection);
   }
 
   /* ***************************************************************
@@ -237,6 +256,9 @@ public class ControlPanel extends VBox {
     }
     statusSquare.setFill(squareColor);
     statusText.setText(text);
+    if (measEstadoLabel != null) {
+      measEstadoLabel.setText(text);
+    }
   }
 
   /* ***************************************************************
@@ -479,6 +501,7 @@ public class ControlPanel extends VBox {
 
     stepBtn = new Button("PROXIMO EVENTO");
     stepBtn.setMaxWidth(Double.MAX_VALUE);
+    stepBtn.setWrapText(true);
     stepBtn.setOnAction(e -> {
       if (onStepCallback != null) onStepCallback.run();
     });
@@ -571,6 +594,87 @@ public class ControlPanel extends VBox {
     logScaleCheck.setOnAction(e -> controller.onLogScaleChanged(logScaleCheck.isSelected()));
 
     box.getChildren().addAll(resultsLabel, logScaleCheck);
+    return box;
+  }
+
+  /* ***************************************************************
+  * Metodo: createMeasurementSection
+  * Funcao: Cria a secao MEDICAO sempre visivel abaixo das abas
+  * Parametros: nenhum
+  * Retorno: VBox com a secao de medicao
+  *************************************************************** */
+  private VBox createMeasurementSection() {
+    VBox box = new VBox(8);
+    box.setPadding(new Insets(12));
+    box.setFillWidth(true);
+    Theme.stylePanel(box);
+
+    // Titulo da secao
+    Label titleLabel = new Label("MEDICAO");
+    Theme.styleMeasurementTitle(titleLabel);
+
+    // Linha ESTADO (reaproveita statusIndicator)
+    HBox estadoRow = new HBox(12);
+    estadoRow.setAlignment(Pos.CENTER_LEFT);
+    Label estadoTitle = new Label("ESTADO");
+    Theme.styleMeasurementTitle(estadoTitle);
+    estadoTitle.setMinWidth(160);
+    estadoRow.getChildren().addAll(estadoTitle, statusIndicator);
+
+    // Linha CONFIGURACAO ATIVA
+    HBox configRow = new HBox(12);
+    configRow.setAlignment(Pos.CENTER_LEFT);
+    Label configTitle = new Label("CONFIGURACAO ATIVA");
+    Theme.styleMeasurementTitle(configTitle);
+    configTitle.setMinWidth(160);
+    measConfigLabel = new Label("--");
+    Theme.styleMeasurementValue(measConfigLabel);
+    configRow.getChildren().addAll(configTitle, measConfigLabel);
+
+    // Linha PACOTES GERADOS
+    HBox pacotesRow = new HBox(12);
+    pacotesRow.setAlignment(Pos.CENTER_LEFT);
+    Label pacotesTitle = new Label("PACOTES GERADOS");
+    Theme.styleMeasurementTitle(pacotesTitle);
+    pacotesTitle.setMinWidth(160);
+    measPacotesLabel = new Label("0");
+    Theme.styleMeasurementValue(measPacotesLabel);
+    pacotesRow.getChildren().addAll(pacotesTitle, measPacotesLabel);
+
+    // Linha TEMPO VIRTUAL (ms)
+    HBox tempoRow = new HBox(12);
+    tempoRow.setAlignment(Pos.CENTER_LEFT);
+    Label tempoTitle = new Label("TEMPO VIRTUAL (MS)");
+    Theme.styleMeasurementTitle(tempoTitle);
+    tempoTitle.setMinWidth(160);
+    measTempoLabel = new Label("0 ms");
+    Theme.styleMeasurementValue(measTempoLabel);
+    tempoRow.getChildren().addAll(tempoTitle, measTempoLabel);
+
+    // Linha EM TRANSITO
+    HBox transitoRow = new HBox(12);
+    transitoRow.setAlignment(Pos.CENTER_LEFT);
+    Label transitoTitle = new Label("EM TRANSITO");
+    Theme.styleMeasurementTitle(transitoTitle);
+    transitoTitle.setMinWidth(160);
+    measEmTransitoLabel = new Label("0");
+    Theme.styleMeasurementValue(measEmTransitoLabel);
+    transitoRow.getChildren().addAll(transitoTitle, measEmTransitoLabel);
+
+    // Bloco DESTINO ATINGIDO (destacado com borda esquerda laranja)
+    VBox destinoBox = new VBox(4);
+    Theme.styleDestinoAtingido(destinoBox);
+    Label destinoTitle = new Label("DESTINO ATINGIDO");
+    Theme.styleMeasurementTitle(destinoTitle);
+    measDestinoLabel = new Label("--");
+    Theme.styleMeasurementValue(measDestinoLabel);
+    destinoBox.getChildren().addAll(destinoTitle, measDestinoLabel);
+
+    box.getChildren().addAll(
+      titleLabel,
+      estadoRow, configRow, pacotesRow, tempoRow, transitoRow,
+      destinoBox
+    );
     return box;
   }
 
@@ -809,7 +913,7 @@ public class ControlPanel extends VBox {
 
   /* ***************************************************************
   * Metodo: setCounter
-  * Funcao: Atualiza contador de pacotes no overlay
+  * Funcao: Atualiza contador de pacotes no overlay e na secao MEDICAO
   * Parametros: count - numero de pacotes gerados
   * Retorno: void
   *************************************************************** */
@@ -817,11 +921,14 @@ public class ControlPanel extends VBox {
     if (overlayPacketsLabel != null) {
       Platform.runLater(() -> overlayPacketsLabel.setText(Long.toString(count)));
     }
+    if (measPacotesLabel != null) {
+      Platform.runLater(() -> measPacotesLabel.setText(Long.toString(count)));
+    }
   }
 
   /* ***************************************************************
   * Metodo: setVirtualTime
-  * Funcao: Atualiza tempo virtual no overlay
+  * Funcao: Atualiza tempo virtual no overlay e na secao MEDICAO
   * Parametros: time - tempo em ms
   * Retorno: void
   *************************************************************** */
@@ -829,17 +936,59 @@ public class ControlPanel extends VBox {
     if (overlayTimeLabel != null) {
       Platform.runLater(() -> overlayTimeLabel.setText(time + " ms"));
     }
+    if (measTempoLabel != null) {
+      Platform.runLater(() -> measTempoLabel.setText(time + " ms"));
+    }
+  }
+
+  /* ***************************************************************
+  * Metodo: setEmTransito
+  * Funcao: Atualiza contador de pacotes em transito na secao MEDICAO
+  * Parametros: count - numero de pacotes em transito
+  * Retorno: void
+  *************************************************************** */
+  public void setEmTransito(int count) {
+    if (measEmTransitoLabel != null) {
+      Platform.runLater(() -> measEmTransitoLabel.setText(Integer.toString(count)));
+    }
+  }
+
+  /* ***************************************************************
+  * Metodo: setConfiguracaoAtiva
+  * Funcao: Atualiza texto de configuracao ativa na secao MEDICAO
+  * Parametros: config - string formatada (ex.: "V3 A->H TTL 3")
+  * Retorno: void
+  *************************************************************** */
+  public void setConfiguracaoAtiva(String config) {
+    if (measConfigLabel != null) {
+      Platform.runLater(() -> measConfigLabel.setText(config));
+    }
+  }
+
+  /* ***************************************************************
+  * Metodo: setDestinoAtingido
+  * Funcao: Atualiza bloco DESTINO ATINGIDO na secao MEDICAO
+  * Parametros: count - pacotes gerados; time - tempo em ms
+  * Retorno: void
+  *************************************************************** */
+  public void setDestinoAtingido(long count, long time) {
+    if (measDestinoLabel != null) {
+      Platform.runLater(() -> measDestinoLabel.setText(count + " pacotes gerados em " + time + " ms"));
+    }
   }
 
   /* ***************************************************************
   * Metodo: showSnapshot
-  * Funcao: Mostra snapshot no overlay
+  * Funcao: Mostra snapshot no overlay e na secao MEDICAO
   * Parametros: counter - contador no snapshot; time - tempo do snapshot
   * Retorno: void
   *************************************************************** */
   public void showSnapshot(long counter, long time) {
     if (overlaySnapshotLabel != null) {
       Platform.runLater(() -> overlaySnapshotLabel.setText("Snapshot: " + counter + " @ " + time + " ms"));
+    }
+    if (measDestinoLabel != null && counter > 0) {
+      Platform.runLater(() -> measDestinoLabel.setText(counter + " pacotes gerados em " + time + " ms"));
     }
   }
 
@@ -923,6 +1072,11 @@ public class ControlPanel extends VBox {
       overlayFinishedLabel.setVisible(false);
       overlayFinishedLabel.setManaged(false);
     }
+    if (measPacotesLabel != null) measPacotesLabel.setText("0");
+    if (measTempoLabel != null) measTempoLabel.setText("0 ms");
+    if (measEmTransitoLabel != null) measEmTransitoLabel.setText("0");
+    if (measConfigLabel != null) measConfigLabel.setText("--");
+    if (measDestinoLabel != null) measDestinoLabel.setText("--");
     setEstado(EstadoSimulacao.OCIOSO);
   }
 

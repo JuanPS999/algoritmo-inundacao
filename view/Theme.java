@@ -523,6 +523,40 @@ public final class Theme {
     }
 
     /**
+     * Aplica estilo a label de titulo da secao MEDICAO (cor secundaria, mono 12px bold, caixa alta).
+     * @param label Label a estilizar
+     */
+    public static void styleMeasurementTitle(Label label) {
+        label.setFont(Theme.FONT_12_BOLD);
+        label.setStyle("-fx-text-fill: " + TEXT_SECONDARY + ";");
+        label.setText(label.getText().toUpperCase());
+    }
+
+    /**
+     * Aplica estilo a label de valor da secao MEDICAO (amarelo-sujo, mono 12px).
+     * @param label Label a estilizar
+     */
+    public static void styleMeasurementValue(Label label) {
+        label.setFont(Theme.FONT_12);
+        label.setStyle("-fx-text-fill: " + YELLOW + ";");
+    }
+
+    /**
+     * Aplica estilo a bloco destacado DESTINO ATINGIDO (borda esquerda laranja, fundo painel).
+     * @param region Regiao a estilizar
+     */
+    public static void styleDestinoAtingido(Region region) {
+        region.setStyle(
+            "-fx-background-color: " + PANEL + ";" +
+            "-fx-border-color: " + ORANGE_FILL + " transparent transparent transparent;" +
+            "-fx-border-width: 0 0 0 3;" +
+            "-fx-border-radius: 0;" +
+            "-fx-background-radius: 0;" +
+            "-fx-padding: 8 12 8 12;"
+        );
+    }
+
+    /**
      * Aplica o tema a uma Scene (fundo global).
      * @param scene Scene a estilizar
      */

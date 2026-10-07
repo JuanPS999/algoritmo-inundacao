@@ -39,8 +39,10 @@ public class FloodingApp extends Application {
     private EventLogPane eventLogPane;
 
     // Larguras preferidas dos painéis
-    private static final double LEFT_PREF_WIDTH = 300.0;
+    private static final double LEFT_PREF_WIDTH = 380.0;
+    private static final double LEFT_MIN_WIDTH = 360.0;
     private static final double RIGHT_PREF_WIDTH = 420.0;
+    private static final double RIGHT_MIN_WIDTH = 360.0;
     private static final double GRAPH_MIN_WIDTH = 560.0;
 
     /* ***************************************************************
@@ -79,14 +81,15 @@ public class FloodingApp extends Application {
         VBox rightPane = new VBox(5, resultsTable.getNode(), eventLogPane);
         VBox.setVgrow(resultsTable.getNode(), Priority.ALWAYS);
         VBox.setVgrow(eventLogPane, Priority.ALWAYS);
-        rightPane.setMinWidth(RIGHT_PREF_WIDTH);
+        rightPane.setMinWidth(RIGHT_MIN_WIDTH);
         rightPane.setPrefWidth(RIGHT_PREF_WIDTH);
         rightPane.setMaxWidth(RIGHT_PREF_WIDTH);
 
-        // Painel esquerdo: controles (largura fixa)
-        controlPanel.setMinWidth(LEFT_PREF_WIDTH);
+        // Painel esquerdo: controles (largura fixa, nao redimensiona com o pai)
+        controlPanel.setMinWidth(LEFT_MIN_WIDTH);
         controlPanel.setPrefWidth(LEFT_PREF_WIDTH);
         controlPanel.setMaxWidth(LEFT_PREF_WIDTH);
+        SplitPane.setResizableWithParent(controlPanel, false);
 
         // Grafo: protagonista, largura minima 560
         graphPane.setMinWidth(GRAPH_MIN_WIDTH);
@@ -144,7 +147,7 @@ public class FloodingApp extends Application {
 
         primaryStage.setTitle("Roteamento por Inundacao");
         primaryStage.setScene(scene);
-        primaryStage.setMinWidth(1100);
+        primaryStage.setMinWidth(1300);
         primaryStage.setMinHeight(680);
         primaryStage.show();
 

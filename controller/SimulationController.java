@@ -295,6 +295,11 @@ public class SimulationController {
         controlPanel.resetDisplay();
         controlPanel.setEstado(view.ControlPanel.EstadoSimulacao.RODANDO);
         controlPanel.setStatus("Simulacao em andamento.");
+        controlPanel.setConfiguracaoAtiva(
+            "V" + controlPanel.getVersion() + " " +
+            controlPanel.getSourceId() + "->" + controlPanel.getDestinationId() +
+            " TTL " + controlPanel.getTtl()
+        );
         simulator.start();
         refreshView();
         timer.start();
@@ -562,12 +567,14 @@ public class SimulationController {
         List<Simulator.InFlight> flights = simulator.inFlight();
         controlPanel.setCounter(simulator.getPacketsGenerated());
         controlPanel.setVirtualTime(clock);
+        controlPanel.setEmTransito(flights.size());
         graphPane.showPackets(flights, clock, showTtl);
         controlPanel.setNextEventTime(simulator.peekNextTime());
         if (simulator.hasSnapshot() && !snapshotShown) {
             snapshotShown = true;
             controlPanel.showSnapshot(simulator.getSnapshotCounter(),
                     simulator.getSnapshotTime());
+            controlPanel.setDestinoAtingido(simulator.getSnapshotCounter(), clock);
             resultsTable.addResult(controlPanel.getVersion(), simulator.getSnapshotCounter());
             graphPane.setDestinationReached(true);
         }//fim do if
