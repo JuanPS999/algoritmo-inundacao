@@ -115,7 +115,7 @@ public final class Theme {
     /** @deprecated use RX_COLOR_OBJ */
     public static final Color RECEPTOR = RX_COLOR_OBJ;
 
-    // ==================== FONTE MONOESPAÇADA ====================
+    // ==================== FONTE MONOESPACADA ====================
 
     /**
      * Fonte Monospaced no tamanho e peso indicados.
@@ -290,6 +290,51 @@ public final class Theme {
             "-fx-font-size: 12px;"
         );
     }
+
+    /**
+     * Aplica estilo ao campo SEMENTE (entrada de texto).
+     * Texto digitado: #ebdbb2, placeholder: #a89984,
+     * fundo: #1d2021, borda 1px #504945, fonte 13px Monospaced.
+     * @param field TextField a estilizar
+     */
+    public static void styleSeedField(javafx.scene.control.TextField field) {
+        field.setStyle(
+            "-fx-background-color: " + BG + ";" +
+            "-fx-border-color: " + BORDER + ";" +
+            "-fx-border-width: 1;" +
+            "-fx-border-radius: 0;" +
+            "-fx-background-radius: 0;" +
+            "-fx-text-fill: " + TEXT + ";" +
+            "-fx-prompt-text-fill: " + TEXT_SECONDARY + ";" +
+            "-fx-font-family: Monospaced;" +
+            "-fx-font-size: 13px;" +
+            "-fx-padding: 4 8 4 8;"
+        );
+    }
+
+    /**
+     * Aplica estilo ao campo REPRODUCAO (somente leitura).
+     * Mostra a semente em amarelo-sujo #d79921,
+     * placeholder: #a89984, fundo: #1d2021, borda 1px #504945, fonte 13px Monospaced.
+     * @param field TextField a estilizar
+     */
+    public static void styleReplayField(javafx.scene.control.TextField field) {
+        field.setStyle(
+            "-fx-background-color: " + BG + ";" +
+            "-fx-border-color: " + BORDER + ";" +
+            "-fx-border-width: 1;" +
+            "-fx-border-radius: 0;" +
+            "-fx-background-radius: 0;" +
+            "-fx-text-fill: " + YELLOW + ";" +
+            "-fx-prompt-text-fill: " + TEXT_SECONDARY + ";" +
+            "-fx-font-family: Monospaced;" +
+            "-fx-font-size: 13px;" +
+            "-fx-padding: 4 8 4 8;"
+        );
+    }
+
+    /**
+     * Aplica estilo basico a TabPane.
 
     /**
      * Aplica estilo basico a TabPane.

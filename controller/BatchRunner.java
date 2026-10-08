@@ -29,7 +29,7 @@ public class BatchRunner {
     *             execucoes; baseSeed = semente base do LatencyProvider;
     *             windowMs = janela de deduplicacao para V4 (ignorado
     *             nas outras versoes)
-    * Retorno: BatchResult com amostras, abortadas e inalcançaveis
+    * Retorno: BatchResult com amostras, abortadas e inalcancaveis
     *************************************************************** */
     public static BatchResult run(Graph graph, int version, int sourceId,
             int destinationId, int ttl, int count, long baseSeed, long windowMs) {

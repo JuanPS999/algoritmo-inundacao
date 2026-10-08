@@ -38,7 +38,7 @@ public class FloodingApp extends Application {
     private ResultsTable resultsTable;
     private EventLogPane eventLogPane;
 
-    // Larguras preferidas dos painéis
+    // Larguras preferidas dos paineis
     private static final double LEFT_PREF_WIDTH = 380.0;
     private static final double LEFT_MIN_WIDTH = 360.0;
     private static final double RIGHT_PREF_WIDTH = 470.0;
@@ -94,7 +94,7 @@ public class FloodingApp extends Application {
         // Grafo: protagonista, largura minima 560
         graphPane.setMinWidth(GRAPH_MIN_WIDTH);
 
-        // SplitPane com 3 painéis: controles | grafo | resultados+log
+        // SplitPane com 3 paineis: controles | grafo | resultados+log
         SplitPane splitPane = new SplitPane();
         Theme.styleSplitPane(splitPane);
         splitPane.setDividerPositions(0.2, 0.55);

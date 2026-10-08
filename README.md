@@ -75,10 +75,25 @@ A;B;PESO
 - Rotulos na GUI: 1->A, 2->B, ... (interno usa numericos 1..N)
 
 ## Versoes do Algoritmo
+
 - **V1**: Cada pacote que chega e enviado por TODAS as interfaces.
-- **V2**: Igual a V1, EXCETO pela interface de chegada.
-- **V3**: Igual a V2, mais verificacao/decremento de TTL (descarte se TTL <= 0).
-- **V4**: Baseada na V3, adiciona deduplicacao temporal por no. Cada no mantem registro do instante da ultima observacao de cada messageId. Se uma copia chegar dentro da janela configurada (windowMs), e descartada como duplicata (nao reencaminhada, nao renova o registro). Com window=0, V4 equivale a V3.
+  - Ignora TTL. Encaminha por todas as interfaces habilitadas, inclusive a de chegada.
+- **V2**: Igual a V1, exceto pela interface de chegada.
+  - Ignora TTL. Encaminha por todas as interfaces habilitadas, exceto a interface pela qual o pacote chegou.
+- **V3**: Igual a V2, mais verificacao/decremento de TTL.
+  - Decrementa TTL antes do encaminhamento. Copias cujo TTL chega a <= 0 sao descartadas.
+  - A chegada ao destino e reconhecida antes desse descarte.
+- **V4**: Baseada na V3, adiciona deduplicacao temporal por no.
+  - Cada mensagem logica possui um messageId compartilhado por suas copias.
+  - Cada no mantem registro do ultimo instante em que observou cada messageId.
+  - Se uma nova chegada ocorre dentro da janela configurada (windowMs), ela e tratada como duplicata e descartada.
+  - A duplicata nao reencaminha e nao renova o instante registrado.
+  - Caso a entrada esteja expirada (janelas passadas), a observacao e aceita e o instante e atualizado.
+  - windowMs padrao e 1000 ms.
+  - windowMs = 0 equivale a V3 (sem deduplicacao).
+  - A limpeza das entries expiradas e preguiçosa, durante consultas (nao ha timers/eventos especificos para expiracao).
+  - A origem registra a mensagem no instante 0.
+  - Cada execucao deve possuir uma nova instancia da Strategy4Custom.
 
 ## Modo Lote (GUI)
 - Botao "Executar N vezes" roda N execucoes (default 30) em thread daemon.
@@ -107,8 +122,7 @@ controller/             SimulationController, BatchRunner, BatchResult,
 view/                   FloodingApp, GraphPane, ControlPanel,
                         ResultsTable
 util/                   BackboneLoader, ConsoleRunner, BatchConsole,
-                        Statistics, GraphInfo
-```
+                        Statistics, GraphInfo, WindowSweep, NodeLabelUtil
 
 ## Testes com Timeout (obrigatorio)
 ```bash

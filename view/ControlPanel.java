@@ -18,6 +18,7 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
 import javafx.scene.control.Spinner;
+import javafx.scene.Node;
 import javafx.scene.control.SpinnerValueFactory;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleButton;
@@ -31,6 +32,11 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.chart.Axis;
+import javafx.scene.chart.BarChart;
+import javafx.scene.chart.CategoryAxis;
+import javafx.scene.chart.NumberAxis;
+import javafx.scene.chart.XYChart;
 import javafx.util.StringConverter;
 import model.Graph;
 import model.RunResult;
@@ -117,7 +123,7 @@ public class ControlPanel extends VBox {
 
   /* ***************************************************************
   * Metodo: build
-  * Funcao: Constrói a interface do painel de controle
+  * Funcao: Constroi a interface do painel de controle
   * Parametros: nenhum
   * Retorno: void
   *************************************************************** */
@@ -534,7 +540,7 @@ public class ControlPanel extends VBox {
     seedField = new TextField();
     seedField.setPromptText("ALEATORIA");
     HBox.setHgrow(seedField, Priority.ALWAYS);
-    Theme.styleTextField(seedField);
+    Theme.styleSeedField(seedField);
     randomSeedBtn = new Button("SORTEAR");
     randomSeedBtn.setOnAction(e -> {
       long seed = System.currentTimeMillis() ^ (long) (Math.random() * 1000000);
@@ -553,7 +559,7 @@ public class ControlPanel extends VBox {
     replayField.setEditable(false);
     replayField.setPromptText("ULTIMA");
     HBox.setHgrow(replayField, Priority.ALWAYS);
-    Theme.styleTextField(replayField);
+    Theme.styleReplayField(replayField);
     copyReplayBtn = new Button("COPIAR");
     copyReplayBtn.setOnAction(e -> {
       javafx.scene.input.Clipboard clipboard = javafx.scene.input.Clipboard.getSystemClipboard();
@@ -579,6 +585,9 @@ public class ControlPanel extends VBox {
   * Parametros: nenhum
   * Retorno: VBox com o conteudo da aba
   *************************************************************** */
+  private BarChart<String, Number> resultsChart;
+  private XYChart.Series<String, Number> chartData;
+
   private VBox createResultsTab() {
     VBox box = new VBox(12);
     box.setPadding(new Insets(12));
@@ -592,9 +601,53 @@ public class ControlPanel extends VBox {
     logScaleCheck = new CheckBox("Escala log");
     logScaleCheck.setSelected(true);
     Theme.styleCheckBox(logScaleCheck);
-    logScaleCheck.setOnAction(e -> controller.onLogScaleChanged(logScaleCheck.isSelected()));
+    logScaleCheck.setOnAction(e -> {
+      controller.onLogScaleChanged(logScaleCheck.isSelected());
+    });
 
-    box.getChildren().addAll(resultsLabel, logScaleCheck);
+    // Chart de comparativo de versoes
+    resultsChart = new BarChart<>(new CategoryAxis(), new NumberAxis());
+    resultsChart.setTitle("");
+    resultsChart.setLegendVisible(false);
+    resultsChart.setAlternativeRowFillVisible(false);
+    resultsChart.setHorizontalGridLinesVisible(true);
+    resultsChart.setVerticalGridLinesVisible(false);
+    // Estilo: fundo painel, bordas, cores de texto
+    resultsChart.setStyle(
+      "-fx-background-color: " + Theme.PANEL + ";" +
+      "-fx-background-radius: 0;" +
+      "-fx-base: " + Theme.PANEL + ";" +
+      "-fx-control-inner-background: " + Theme.PANEL + ";"
+    );
+    CategoryAxis xAxis = (CategoryAxis) resultsChart.getXAxis();
+    xAxis.setStyle("-fx-label-fill: " + Theme.TEXT_SECONDARY + "; -fx-font-size: 11px; -fx-font-family: Monospaced;");
+    xAxis.setCategories(javafx.collections.FXCollections.observableArrayList("V1", "V2", "V3", "V4"));
+    NumberAxis yAxis = (NumberAxis) resultsChart.getYAxis();
+    yAxis.setStyle("-fx-label-fill: " + Theme.TEXT_SECONDARY + "; -fx-font-size: 11px; -fx-font-family: Monospaced;");
+    yAxis.setTickLabelFill(javafx.scene.paint.Color.web("#ebdbb2"));
+    yAxis.setLabel("Tempo (ms)");
+
+    chartData = new XYChart.Series<>();
+    chartData.setName("Media");
+    resultsChart.getData().add(chartData);
+
+    // Cores: barras em laranja queimado #d65d0e, texto em #ebdbb2
+    for (Node node : resultsChart.lookupAll(".default-color0-tick")) {
+      if (node instanceof javafx.scene.control.Control) {
+        ((javafx.scene.control.Control) node).setStyle("-fx-background-color: " + Theme.ORANGE_FILL + "; -fx-text-fill: " + Theme.TEXT + ";");
+      }
+    }
+    for (Node node : resultsChart.lookupAll(".chart-bar")) {
+      node.setStyle("-fx-background-color: " + Theme.ORANGE_FILL + "; -fx-background-radius: 0;");
+    }
+    for (Node node : resultsChart.lookupAll(".axis-tick-mark")) {
+      node.setStyle("-fx-background-color: " + Theme.TEXT_SECONDARY + ";");
+    }
+    for (Node node : resultsChart.lookupAll(".axis-label")) {
+      node.setStyle("-fx-text-fill: " + Theme.TEXT_SECONDARY + ";");
+    }
+
+    box.getChildren().addAll(resultsLabel, logScaleCheck, resultsChart);
     return box;
   }
 

@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.function.Consumer;
+import util.Statistics;
 import javafx.animation.AnimationTimer;
 import javafx.application.Platform;
 import javafx.concurrent.Task;
@@ -81,6 +82,7 @@ public class SimulationController {
         controlPanel.setOnEndpointsChange(this::updateEndpoints);
         controlPanel.setOnBatch(this::runBatch);
         controlPanel.setOnStep(this::step);
+        // Atualizar chart de resultados quando os dados da tabela mudarem
         updateEndpoints();
     }//fim do construtor SimulationController
 
@@ -295,10 +297,12 @@ public class SimulationController {
         controlPanel.resetDisplay();
         controlPanel.setEstado(view.ControlPanel.EstadoSimulacao.RODANDO);
         controlPanel.setStatus("Simulacao em andamento.");
+        // Usar rotulos de no (ex.: "V3  A->H  TTL 3")
+        String sourceLabel = graphPane.getGraph().getNode(controlPanel.getSourceId()).getLabel();
+        String targetLabel = graphPane.getGraph().getNode(controlPanel.getDestinationId()).getLabel();
         controlPanel.setConfiguracaoAtiva(
-            "V" + controlPanel.getVersion() + " " +
-            controlPanel.getSourceId() + "->" + controlPanel.getDestinationId() +
-            " TTL " + controlPanel.getTtl()
+            "V" + controlPanel.getVersion() + "  " +
+            sourceLabel + "->" + targetLabel + "  TTL " + controlPanel.getTtl()
         );
         simulator.start();
         refreshView();
@@ -428,6 +432,7 @@ public class SimulationController {
         droppedLogLines = 0;
         graphPane.clearPackets();
         graphPane.setDestinationReached(false);
+        graphPane.pulseClearNow();
         controlPanel.resetDisplay();
         controlPanel.setState("PRONTO");
         controlPanel.setStatus("Pronto.");
@@ -475,8 +480,10 @@ public class SimulationController {
         }
     }//fim do metodo deliverLogIfNeeded
 
-    /* ***************************************************************
-    * Metodo: addLogLine
+  /* ***************************************************************
+  * Metodo: updateResultsChart
+  * Funcao: atualiza o bar chart de resultados na aba RESULTS
+  *         com a media de snapshots de cada versao.
     * Funcao: adiciona uma linha ao log, mantendo no maximo MAX_LOG_LINES.
     *         Conta linhas descartadas.
     * Parametros: line = linha formatada

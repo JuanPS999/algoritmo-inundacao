@@ -6,7 +6,7 @@
 * Nome.............: BatchResult
 * Funcao...........: Resultado imutavel de uma execucao em lote
 *                    (batch) contendo amostras, contagem de
-*                    abortadas e inalcançaveis.
+*                    abortadas e inalcancaveis.
 *************************************************************** */
 package controller;
 
@@ -25,8 +25,8 @@ public final class BatchResult {
   *         contadores. A lista de amostras eh defensivamente copiada
   *         para garantir imutabilidade.
   * Parametros: samples = lista de contadores de pacotes (sucessos);
-  *             aborted = numero de execuções abortadas por limite;
-  *             unreachable = numero de execuções sem caminho ao destino
+  *             aborted = numero de execucoes abortadas por limite;
+  *             unreachable = numero de execucoes sem caminho ao destino
   * Retorno: nao se aplica
   *************************************************************** */
   public BatchResult(List<Long> samples, int aborted, int unreachable) {
@@ -57,7 +57,7 @@ public final class BatchResult {
 
   /* ***************************************************************
   * Metodo: getUnreachable
-  * Funcao: retorna o numero de execucoes inalcançaveis.
+  * Funcao: retorna o numero de execucoes inalcancaveis.
   * Parametros: nenhum
   * Retorno: int
   *************************************************************** */

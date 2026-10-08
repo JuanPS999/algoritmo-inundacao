@@ -195,7 +195,7 @@ public class GraphPane extends Pane {
     * Metodo: showPackets
     * Funcao: redesenha pacotes em transito no Canvas unico.
     *         Cada pacote: ponto raio 3 em #fe8019 alpha 0.85.
-    *         TTL: monoespaçado 12px se <= 150 pacotes e showTtl=true.
+    *         TTL: monoespacado 12px se <= 150 pacotes e showTtl=true.
     *         Tambem desenha pulsos de atividade no pulseCanvas.
     * Parametros: flights = pacotes em transito; virtualTime = relogio virtual
     *             showTtl = true para exibir TTL
@@ -350,6 +350,24 @@ public class GraphPane extends Pane {
         }
         nodePulses.clear();
     }//fim do metodo clearPackets
+
+    /* ***************************************************************
+    * Metodo: pulseClearNow
+    * Funcao: zera imediatamente o mapa de pulsos e limpa o canvas de pulsos.
+    *          Isso garante que halos expirem em ate 300 ms reais,
+    *          mesmo sem novos quadros da animacao.
+    * Parametros: nenhum
+    * Retorno: void
+    *************************************************************** */
+    public void pulseClearNow() {
+        nodePulses.clear();
+        GraphicsContext gcPulse = pulseCanvas.getGraphicsContext2D();
+        double w = getWidth();
+        double h = getHeight();
+        if (w > 0 && h > 0) {
+            gcPulse.clearRect(0, 0, w, h);
+        }
+    }//fim do metodo pulseClearNow
 
     /* ***************************************************************
     * Metodo: redraw

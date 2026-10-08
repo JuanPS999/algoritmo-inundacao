@@ -39,6 +39,8 @@ public final class AboutDialog {
     public static void show() {
         Alert alert = new Alert(AlertType.INFORMATION);
         alert.setTitle("SOBRE");
+        alert.setHeaderText(null);
+        alert.setGraphic(null);
 
         // Conteudo em TextArea monoespacada, somente leitura, rolavel
         TextArea textArea = new TextArea();
@@ -51,17 +53,17 @@ public final class AboutDialog {
         ScrollPane scroll = new ScrollPane(textArea);
         scroll.setFitToWidth(true);
         scroll.setFitToHeight(true);
-        scroll.setPrefViewportWidth(680);
-        scroll.setPrefViewportHeight(480);
+        scroll.setPrefViewportWidth(860);
+        scroll.setPrefViewportHeight(600);
 
         VBox content = new VBox(scroll);
         content.setPadding(new Insets(16));
-        content.setPrefWidth(720);
-        content.setPrefHeight(560);
+        content.setPrefWidth(860);
+        content.setPrefHeight(660);
 
         alert.getDialogPane().setContent(content);
-        alert.getDialogPane().setPrefWidth(720);
-        alert.getDialogPane().setPrefHeight(560);
+        alert.getDialogPane().setPrefWidth(900);
+        alert.getDialogPane().setPrefHeight(720);
         alert.setResizable(true);
 
         // Aplicar estilo do Theme ao DialogPane
@@ -145,6 +147,23 @@ public final class AboutDialog {
         sb.append("  Juan Prado Da Silva\n");
         sb.append("  Matricula: 202310291\n\n");
 
+        sb.append("OPCAO 4: V4 - DEDUPLICACAO TEMPORAL\n");
+        sb.append("  Problema: Em flooding, o mesmo messageId chega repetidas vezes\n");
+        sb.append("  ao mesmo no por caminhos diferentes, gerando retransmissoes\n");
+        sb.append("  desnecessarias e tempestade de pacotes.\n");
+        sb.append("  Como funciona: Cada no mantem um mapa messageId -> instanteVisto.\n");
+        sb.append("  Ao receber uma copia em t, se (t - instanteVisto) < windowMs,\n");
+        sb.append("  a copia e descartada como duplicata e NAO renova o registro.\n");
+        sb.append("  Caso contrario, atualiza instanteVisto e aplica logica V3.\n");
+        sb.append("  Parametro da janela: windowMs (padrao 1000 ms). windowMs = 0\n");
+        sb.append("  equivale a V3 (sem deduplicacao).\n");
+        sb.append("  Custo: Memoria O(N * M) onde N = nos, M = messageIds ativos;\n");
+        sb.append("  limpeza preguicosa so durante consultas (sem timers).\n");
+        sb.append("  Limitacao: Nao evita a primeira onda de duplicatas; so\n");
+        sb.append("  suprime re-chegadas dentro da janela. Janela muito grande\n");
+        sb.append("  pode suprimir retransmissoes legitimas; muito pequena\n");
+        sb.append("  nao filtra ruido. windowMs = 0 desativa (igual a V3).\n\n");
+
         sb.append("COMO USAR\n");
         sb.append("  1. Escolha versao (V1 a V4), transmissor, receptor e TTL na aba CENARIO.\n");
         sb.append("  2. Clique INICIAR na aba EXECUCAO para comecar a simulacao.\n");
@@ -161,23 +180,6 @@ public final class AboutDialog {
         sb.append("  V3: V2 + decrementa TTL antes de encaminhar; entrega no destino\n");
         sb.append("      reconhecida antes do descarte por TTL.\n");
         sb.append("  V4: V3 + deduplicacao temporal por no (janela configuravel).\n\n");
-
-        sb.append("OPCAO 4: V4 - DEDUPLICACAO TEMPORAL\n");
-        sb.append("  Problema: Em flooding, o mesmo messageId chega repetidas vezes\n");
-        sb.append("  ao mesmo no por caminhos diferentes, gerando retransmissoes\n");
-        sb.append("  desnecessarias e tempestade de pacotes.\n");
-        sb.append("  Como funciona: Cada no mantem um mapa messageId -> instanteVisto.\n");
-        sb.append("  Ao receber uma copia em t, se (t - instanteVisto) < windowMs,\n");
-        sb.append("  a copia e descartada como duplicata e NAO renova o registro.\n");
-        sb.append("  Caso contrario, atualiza instanteVisto e aplica logica V3.\n");
-        sb.append("  Parametro da janela: windowMs (padrao 1000 ms). windowMs = 0\n");
-        sb.append("  equivale a V3 (sem deduplicacao).\n");
-        sb.append("  Custo: Memoria O(N * M) onde N = nos, M = messageIds ativos;\n");
-        sb.append("  limpeza preguiçosa so durante consultas (sem timers).\n");
-        sb.append("  Limitacao: Nao evita a primeira onda de duplicatas; so\n");
-        sb.append("  suprime re-chegadas dentro da janela. Janela muito grande\n");
-        sb.append("  pode suprimir retransmissoes legitimas; muito pequena\n");
-        sb.append("  nao filtra ruido. windowMs = 0 desativa (igual a V3).");
 
         return sb.toString();
     }
