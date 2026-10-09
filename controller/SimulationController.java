@@ -58,6 +58,9 @@ public class SimulationController {
     // buffer de linhas novas desde ultima entrega
     private final Deque<String> newLogLines = new ArrayDeque<String>();
 
+    // Task do lote em execucao (para cancelamento)
+    private Task<Void> batchTask;
+
     /* ***************************************************************
     * Metodo: SimulationController
     * Funcao: construtor; liga os botoes do painel as acoes.
@@ -81,6 +84,7 @@ public class SimulationController {
         controlPanel.setOnReset(this::reset);
         controlPanel.setOnEndpointsChange(this::updateEndpoints);
         controlPanel.setOnBatch(this::runBatch);
+        controlPanel.setOnCancel(this::cancelBatch);
         controlPanel.setOnStep(this::step);
         // Atualizar chart de resultados quando os dados da tabela mudarem
         updateEndpoints();
@@ -600,13 +604,14 @@ public class SimulationController {
 
     /* ***************************************************************
     * Metodo: runBatch
-    * Funcao: executa o lote de simulacoes em thread de fundo.
-    *         O lote NAO instala listener.
+    * Funcao: executa o lote de simulacoes para versoes 1..4 em thread de fundo.
+    *         Para cada versao, executa 'count' simulacoes com sementes baseSeed + i.
+    *         Atualiza progresso na GUI, registra resultados na ResultsTable e log.
+    *         CANCELAR interrompe entre execucoes.
     * Parametros: nenhum
     * Retorno: void
     *************************************************************** */
     private void runBatch() {
-        final int version = controlPanel.getVersion();
         final int sourceId = controlPanel.getSourceId();
         final int destinationId = controlPanel.getDestinationId();
         final int ttl = controlPanel.getTtl();
@@ -622,40 +627,70 @@ public class SimulationController {
         controlPanel.setEstado(view.ControlPanel.EstadoSimulacao.LOTE);
         controlPanel.setState("LOTE");
         controlPanel.setStatus("Executando lote...");
-        controlPanel.setBatchProgress(0, count);
+        controlPanel.setBatchRunning(true);
 
-        Task<Void> task = new Task<Void>() {
+        this.batchTask = new Task<Void>() {
             @Override
             protected Void call() {
-                for (int i = 0; i < count; i++) {
+                // Para cada versao 1..4
+                for (int version = 1; version <= 4; version++) {
                     if (isCancelled()) {
                         break;
                     }
-                    final long seed = baseSeed + i;
-                    final int current = i + 1;
 
-                    controller.BatchResult result = controller.BatchRunner.run(
-                            graphPane.getGraph(), version, sourceId, destinationId, ttl, 1, seed, windowMs);
+                    // Atualiza progresso da versao atual
+                    final int currentVersion = version;
+                    final int v = version; // effectively final para lambdas
+                    Platform.runLater(() -> {
+                        controlPanel.setBatchProgress("V" + currentVersion + "  0/" + count);
+                    });
 
-                    if (result.getSamples().size() > 0) {
-                        final long snapshot = result.getSamples().get(0);
+                    // Executa 'count' simulacoes para esta versao
+                    for (int i = 0; i < count; i++) {
+                        if (isCancelled()) {
+                            break;
+                        }
+                        final long seed = baseSeed + i;
+                        final int current = i + 1;
+
+                        controller.BatchResult result = controller.BatchRunner.run(
+                                graphPane.getGraph(), v, sourceId, destinationId, ttl, 1, seed, windowMs);
+
+                        if (result.getSamples().size() > 0) {
+                            final long snapshot = result.getSamples().get(0);
+                            Platform.runLater(() -> {
+                                resultsTable.addResult(v, snapshot);
+                                controlPanel.setBatchProgress("V" + currentVersion + "  " + current + "/" + count);
+                            });
+                        } else if (result.getAborted() > 0) {
+                            Platform.runLater(() -> {
+                                resultsTable.addFailure(v, "ABORTADA");
+                                controlPanel.setBatchProgress("V" + currentVersion + "  " + current + "/" + count);
+                            });
+                        } else if (result.getUnreachable() > 0) {
+                            Platform.runLater(() -> {
+                                resultsTable.addFailure(v, "INALCANCAVEL");
+                                controlPanel.setBatchProgress("V" + currentVersion + "  " + current + "/" + count);
+                            });
+                        } else {
+                            Platform.runLater(() -> {
+                                controlPanel.setBatchProgress("V" + currentVersion + "  " + current + "/" + count);
+                            });
+                        }
+                    }
+
+                    // Log da versao concluida (usa ultima execucao valida ou 0)
+                    if (!isCancelled()) {
+                        // Obter estatisticas finais da tabela para esta versao
                         Platform.runLater(() -> {
-                            resultsTable.addResult(version, snapshot);
-                            controlPanel.setBatchProgress(current, count);
-                        });
-                    } else if (result.getAborted() > 0) {
-                        Platform.runLater(() -> {
-                            resultsTable.addFailure(version, "ABORTADA");
-                            controlPanel.setBatchProgress(current, count);
-                        });
-                    } else if (result.getUnreachable() > 0) {
-                        Platform.runLater(() -> {
-                            resultsTable.addFailure(version, "INALCANCAVEL");
-                            controlPanel.setBatchProgress(current, count);
-                        });
-                    } else {
-                        Platform.runLater(() -> {
-                            controlPanel.setBatchProgress(current, count);
+                            List<Long> samples = resultsTable.getSamples(v);
+                            if (!samples.isEmpty()) {
+                                double mean = util.Statistics.mean(samples);
+                                double stdDev = util.Statistics.standardDeviation(samples);
+                                addLogLine(String.format("lote V%d: n=%d media=%.2f desvio=%.2f", v, samples.size(), mean, stdDev));
+                            } else {
+                                addLogLine(String.format("lote V%d: n=0 (sem execucoes validas)", v));
+                            }
                         });
                     }
                 }
@@ -664,28 +699,43 @@ public class SimulationController {
 
             @Override
             protected void succeeded() {
-                controlPanel.setEstado(view.ControlPanel.EstadoSimulacao.OCIOSO);
-                controlPanel.setState("PRONTO");
+                controlPanel.setEstado(view.ControlPanel.EstadoSimulacao.ENCERRADO);
+                controlPanel.setState("ENCERRADO");
                 controlPanel.setStatus("Lote concluido.");
+                controlPanel.setBatchRunning(false);
             }
 
             @Override
             protected void failed() {
-                controlPanel.setEstado(view.ControlPanel.EstadoSimulacao.OCIOSO);
+                controlPanel.setEstado(view.ControlPanel.EstadoSimulacao.ENCERRADO);
                 controlPanel.setState("ERRO");
                 controlPanel.setStatus("Erro no lote: " + getException().getMessage());
+                controlPanel.setBatchRunning(false);
             }
 
             @Override
             protected void cancelled() {
-                controlPanel.setEstado(view.ControlPanel.EstadoSimulacao.OCIOSO);
-                controlPanel.setState("PRONTO");
+                controlPanel.setEstado(view.ControlPanel.EstadoSimulacao.ENCERRADO);
+                controlPanel.setState("ENCERRADO");
                 controlPanel.setStatus("Lote cancelado.");
+                controlPanel.setBatchRunning(false);
             }
         };
 
-        Thread thread = new Thread(task);
+        Thread thread = new Thread(this.batchTask);
         thread.setDaemon(true);
         thread.start();
     }//fim do metodo runBatch
+
+    /* ***************************************************************
+    * Metodo: cancelBatch
+    * Funcao: cancela o lote em andamento (Task cancelada).
+    * Parametros: nenhum
+    * Retorno: void
+    *************************************************************** */
+    private void cancelBatch() {
+        if (batchTask != null) {
+            batchTask.cancel(true);
+        }
+    }//fim do metodo cancelBatch
 }//fim da classe SimulationController

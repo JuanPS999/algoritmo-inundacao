@@ -1286,7 +1286,9 @@ public class ControlPanel extends VBox {
   * Retorno: void
   *************************************************************** */
   public void setBatchProgress(int current, int total) {
-    // No-op para compatibilidade
+    if (batchProgressLabel != null) {
+      batchProgressLabel.setText("V" + current + "/" + total);
+    }
   }
 
   /* ***************************************************************
