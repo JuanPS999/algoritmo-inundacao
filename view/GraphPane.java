@@ -53,7 +53,7 @@ public class GraphPane extends Pane {
     private static final double LABEL_MAX_SIZE = 20.0;
 
     // Constantes visuais dos pacotes
-    private static final Color PACKET_COLOR = Color.web(Theme.ORANGE_ACCENT, 0.85);
+    private static final Color PACKET_COLOR = Color.web(Theme.PACKET_COLOR, 0.85);
     private static final int MAX_PACKETS_FOR_TTL = 60;
     private static final double TTL_FONT_SIZE = 12.0;
     private static final double TTL_OFFSET_PERP = 14.0; // deslocamento perpendicular ao cabo
@@ -194,7 +194,7 @@ public class GraphPane extends Pane {
     /* ***************************************************************
     * Metodo: showPackets
     * Funcao: redesenha pacotes em transito no Canvas unico.
-    *         Cada pacote: ponto raio 3 em #fe8019 alpha 0.85.
+    *         Cada pacote: ponto raio 3 em #d3869b alpha 0.85.
     *         TTL: monoespacado 12px se <= 150 pacotes e showTtl=true.
     *         Tambem desenha pulsos de atividade no pulseCanvas.
     * Parametros: flights = pacotes em transito; virtualTime = relogio virtual
@@ -230,8 +230,8 @@ public class GraphPane extends Pane {
             gcPkt.setFill(Theme.TEXT_COLOR);
         }
 
-        // Pacotes: preenchimento #fe8019, contorno 1px #1d2021, raio 4
-        Color packetFill = Theme.ORANGE_ACCENT_COLOR; // #fe8019
+        // Pacotes: preenchimento #d3869b, contorno 1px #1d2021, raio 4
+        Color packetFill = Theme.PACKET_COLOR_OBJ; // #d3869b
         Color packetStroke = Theme.BG_COLOR;          // #1d2021
 
         for (Simulator.InFlight flight : flights) {
@@ -697,7 +697,7 @@ public class GraphPane extends Pane {
             }
             hex.setStrokeWidth(isDest ? 4.0 : 2.0);
             if (isDest) {
-                hex.setStroke(Theme.ORANGE_ACCENT_COLOR);
+                hex.setStroke(Theme.PACKET_COLOR_OBJ);
             }
             hex.setMouseTransparent(true);
 
@@ -775,7 +775,7 @@ public class GraphPane extends Pane {
             new LegendItem(Theme.TEXT_SECONDARY_COLOR, "cabo em repouso", 1),   // bege #a89984
             new LegendItem(Theme.ORANGE_ACCENT_COLOR, "cabo ativo", 1),           // laranja #fe8019
             new LegendItem(Theme.INACTIVE_COLOR, "cabo cortado", 2),              // tracejado #665c54 c/ X
-            new LegendItem(Theme.ORANGE_ACCENT_COLOR, "pacote", 3),               // ponto laranja c/ contorno #1d2021
+            new LegendItem(Theme.PACKET_COLOR_OBJ, "pacote", 3),               // ponto #d3869b c/ contorno #1d2021
             new LegendItem(Theme.ORANGE_ACCENT_COLOR, "pulso", 4)                 // anel contorno
         };
 

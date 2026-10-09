@@ -65,6 +65,9 @@ public final class Theme {
     /** Receptor (RX): #458588 */
     public static final String RX_COLOR = "#458588";
 
+    /** Pacote: #d3869b */
+    public static final String PACKET_COLOR = "#d3869b";
+
     /** Grade de fundo: #2d2c2b */
     public static final String GRID = "#2d2c2b";
 
@@ -83,6 +86,8 @@ public final class Theme {
     public static final Color RED_COLOR = Color.web(RED);
     public static final Color TX_COLOR_OBJ = Color.web(TX_COLOR);
     public static final Color RX_COLOR_OBJ = Color.web(RX_COLOR);
+
+    public static final Color PACKET_COLOR_OBJ = Color.web(PACKET_COLOR);
 
     public static final Color GRID_COLOR = Color.web(GRID);
 
