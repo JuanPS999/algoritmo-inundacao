@@ -583,10 +583,10 @@ public class ControlPanel extends VBox {
     // Semente
     Label seedLabel = new Label("SEMENTE");
     Theme.styleSectionTitle(seedLabel);
-    HBox seedBox = new HBox(8);
+    HBox seedBox = new HBox(6);
     seedField = new TextField();
     seedField.setPromptText("ALEATORIA");
-    HBox.setHgrow(seedField, Priority.ALWAYS);
+    HBox.setHgrow(seedField, Priority.SOMETIMES);
     Theme.styleSeedField(seedField);
     randomSeedBtn = new Button("SORTEAR");
     randomSeedBtn.setOnAction(e -> {
@@ -601,11 +601,11 @@ public class ControlPanel extends VBox {
     // Reproducao
     Label replayLabel = new Label("REPRODUCAO");
     Theme.styleSectionTitle(replayLabel);
-    HBox replayBox = new HBox(8);
+    HBox replayBox = new HBox(6);
     replayField = new TextField();
     replayField.setEditable(false);
     replayField.setPromptText("ULTIMA");
-    HBox.setHgrow(replayField, Priority.ALWAYS);
+    HBox.setHgrow(replayField, Priority.SOMETIMES);
     Theme.styleReplayField(replayField);
     copyReplayBtn = new Button("COPIAR");
     copyReplayBtn.setOnAction(e -> {
