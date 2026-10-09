@@ -72,6 +72,13 @@ public class ControlPanel extends VBox {
   private CheckBox logScaleCheck;
   private ResultsTable resultsTable;
 
+  // Lote
+  private Spinner<Integer> batchSpinner;
+  private Button batchRunBtn;
+  private Button batchCancelBtn;
+  private Label batchProgressLabel;
+  private Runnable onCancelCallback;
+
   // Callbacks para compatibilidade com controller antigo
   private Runnable onStartCallback;
   private Runnable onPauseCallback;
@@ -610,11 +617,38 @@ public class ControlPanel extends VBox {
     Theme.styleFlatButtonOutlined(copyReplayBtn);
     replayBox.getChildren().addAll(replayField, copyReplayBtn);
 
+    // Lote
+    Label batchLabel = new Label("LOTE");
+    Theme.styleSectionTitle(batchLabel);
+    HBox batchBox = new HBox(8);
+    batchSpinner = new Spinner<Integer>(1, 1000, 30);
+    batchSpinner.setPrefWidth(80);
+    Theme.styleSpinner(batchSpinner);
+    batchRunBtn = new Button("EXECUTAR LOTE (V1-V4)");
+    batchRunBtn.setMaxWidth(Double.MAX_VALUE);
+    batchRunBtn.setOnAction(e -> {
+      if (onBatchCallback != null) onBatchCallback.run();
+    });
+    HBox.setHgrow(batchRunBtn, Priority.ALWAYS);
+    Theme.styleFlatButtonFilled(batchRunBtn);
+    batchCancelBtn = new Button("CANCELAR");
+    batchCancelBtn.setDisable(true);
+    batchCancelBtn.setOnAction(e -> {
+      if (onCancelCallback != null) onCancelCallback.run();
+    });
+    Theme.styleFlatButtonOutlined(batchCancelBtn);
+    batchProgressLabel = new Label("");
+    batchProgressLabel.setMinWidth(100);
+    batchProgressLabel.setFont(Theme.FONT_12);
+    batchProgressLabel.setStyle("-fx-text-fill: " + Theme.TEXT_SECONDARY + ";");
+    batchBox.getChildren().addAll(batchSpinner, batchRunBtn, batchCancelBtn, batchProgressLabel);
+
     box.getChildren().addAll(
       buttonGrid,
       speedLabel, speedSlider,
       seedLabel, seedBox,
-      replayLabel, replayBox
+      replayLabel, replayBox,
+      batchLabel, batchBox
     );
     return box;
   }
@@ -831,16 +865,6 @@ public class ControlPanel extends VBox {
   }
 
   /* ***************************************************************
-  * Metodo: getBatchCount
-  * Funcao: Retorna a contagem de lote (padrao 30)
-  * Parametros: nenhum
-  * Retorno: int - contagem
-  *************************************************************** */
-  public int getBatchCount() {
-    return 30;
-  }
-
-  /* ***************************************************************
   * Metodo: getSeed
   * Funcao: Retorna a semente do campo de texto
   * Parametros: nenhum
@@ -918,6 +942,50 @@ public class ControlPanel extends VBox {
   *************************************************************** */
   public void setOnBatch(Runnable callback) {
     this.onBatchCallback = callback;
+  }
+
+  /* ***************************************************************
+  * Metodo: setOnCancel
+  * Funcao: Define callback para botao Cancelar lote
+  * Parametros: callback - Runnable a executar
+  * Retorno: void
+  *************************************************************** */
+  public void setOnCancel(Runnable callback) {
+    this.onCancelCallback = callback;
+  }
+
+  /* ***************************************************************
+  * Metodo: getBatchCount
+  * Funcao: Devolve o valor do spinner N execucoes
+  * Parametros: nenhum
+  * Retorno: int
+  *************************************************************** */
+  public int getBatchCount() {
+    return batchSpinner != null ? batchSpinner.getValue() : 30;
+  }
+
+  /* ***************************************************************
+  * Metodo: setBatchProgress
+  * Funcao: Atualiza o label de progresso do lote (ex.: "V3  12/30")
+  * Parametros: text - texto a exibir
+  * Retorno: void
+  *************************************************************** */
+  public void setBatchProgress(String text) {
+    if (batchProgressLabel != null) {
+      batchProgressLabel.setText(text);
+    }
+  }
+
+  /* ***************************************************************
+  * Metodo: setBatchRunning
+  * Funcao: Habilita/desabilita botoes do lote conforme estado
+  * Parametros: running - true se lote em execucao
+  * Retorno: void
+  *************************************************************** */
+  public void setBatchRunning(boolean running) {
+    if (batchRunBtn != null) batchRunBtn.setDisable(running);
+    if (batchCancelBtn != null) batchCancelBtn.setDisable(!running);
+    if (batchSpinner != null) batchSpinner.setDisable(running);
   }
 
   /* ***************************************************************
