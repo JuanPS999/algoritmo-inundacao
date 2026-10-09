@@ -620,18 +620,29 @@ public class ControlPanel extends VBox {
     // Lote
     Label batchLabel = new Label("LOTE");
     Theme.styleSectionTitle(batchLabel);
-    HBox batchBox = new HBox(8);
+
+    // Linha 1: label "N EXECUCOES" e spinner
+    HBox spinnerBox = new HBox(6);
     batchSpinner = new Spinner<Integer>(1, 1000, 30);
-    batchSpinner.setPrefWidth(80);
+    batchSpinner.setMinWidth(90);
     Theme.styleSpinner(batchSpinner);
+    Label nExecucoesLabel = new Label("N EXECUCOES");
+    nExecucoesLabel.setFont(Theme.FONT_12);
+    nExecucoesLabel.setStyle("-fx-text-fill: " + Theme.TEXT_SECONDARY + ";");
+    spinnerBox.getChildren().addAll(nExecucoesLabel, batchSpinner);
+
+    // Linha 2: botões e label de progresso
+    HBox buttonsBox = new HBox(6);
     batchRunBtn = new Button("EXECUTAR LOTE (V1-V4)");
     batchRunBtn.setMaxWidth(Double.MAX_VALUE);
+    batchRunBtn.setMinWidth(USE_PREF_SIZE);
     batchRunBtn.setOnAction(e -> {
       if (onBatchCallback != null) onBatchCallback.run();
     });
     HBox.setHgrow(batchRunBtn, Priority.ALWAYS);
     Theme.styleFlatButtonFilled(batchRunBtn);
     batchCancelBtn = new Button("CANCELAR");
+    batchCancelBtn.setMinWidth(USE_PREF_SIZE);
     batchCancelBtn.setDisable(true);
     batchCancelBtn.setOnAction(e -> {
       if (onCancelCallback != null) onCancelCallback.run();
@@ -640,8 +651,13 @@ public class ControlPanel extends VBox {
     batchProgressLabel = new Label("");
     batchProgressLabel.setMinWidth(100);
     batchProgressLabel.setFont(Theme.FONT_12);
-    batchProgressLabel.setStyle("-fx-text-fill: " + Theme.TEXT_SECONDARY + ";");
-    batchBox.getChildren().addAll(batchSpinner, batchRunBtn, batchCancelBtn, batchProgressLabel);
+    batchProgressLabel.setStyle("-fx-text-fill: " + Theme.YELLOW + ";");
+    batchProgressLabel.setWrapText(true);
+    buttonsBox.getChildren().addAll(batchRunBtn, batchCancelBtn, batchProgressLabel);
+
+    // Container vertical das duas linhas
+    VBox batchBox = new VBox(6);
+    batchBox.getChildren().addAll(spinnerBox, buttonsBox);
 
     box.getChildren().addAll(
       buttonGrid,
