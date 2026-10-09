@@ -41,6 +41,8 @@ import javafx.util.StringConverter;
 import model.Graph;
 import model.RunResult;
 import util.NodeLabelUtil;
+import util.Statistics;
+import java.util.List;
 
 public class ControlPanel extends VBox {
   private SimulationController controller;
@@ -68,6 +70,7 @@ public class ControlPanel extends VBox {
   private Button randomSeedBtn;
   private Button copyReplayBtn;
   private CheckBox logScaleCheck;
+  private ResultsTable resultsTable;
 
   // Callbacks para compatibilidade com controller antigo
   private Runnable onStartCallback;
@@ -119,6 +122,43 @@ public class ControlPanel extends VBox {
   *************************************************************** */
   public void setController(SimulationController controller) {
     this.controller = controller;
+  }
+
+  /* ***************************************************************
+  * Metodo: setResultsTable
+  * Funcao: Define a tabela de resultados para o grafico ler os dados.
+  * Parametros: resultsTable - ResultsTable
+  * Retorno: void
+  *************************************************************** */
+  public void setResultsTable(ResultsTable resultsTable) {
+    this.resultsTable = resultsTable;
+    if (resultsTable != null) {
+      resultsTable.setOnChange(this::refreshChart);
+      refreshChart();
+    }
+  }
+
+  /* ***************************************************************
+  * Metodo: refreshChart
+  * Funcao: Atualiza o grafico de barras lendo media, desvio e N
+  *         da ResultsTable para V1..V4. Com N=0 a barra fica vazia.
+  * Parametros: nenhum
+  * Retorno: void
+  *************************************************************** */
+  public void refreshChart() {
+    if (resultsTable == null || chartData == null) {
+      return;
+    }
+    chartData.getData().clear();
+    for (int v = 1; v <= 4; v++) {
+      List<Long> samples = resultsTable.getSamples(v);
+      int n = samples.size();
+      if (n > 0) {
+        double mean = Statistics.mean(samples);
+        chartData.getData().add(new XYChart.Data<>("V" + v, mean));
+      }
+      // N=0: nao adiciona ponto -> barra vazia
+    }
   }
 
   /* ***************************************************************

@@ -73,6 +73,7 @@ public class FloodingApp extends Application {
         controlPanel = new ControlPanel(null, graph);
         controller = new SimulationController(controlPanel, graphPane, resultsTable);
         controlPanel.setController(controller);
+        controlPanel.setResultsTable(resultsTable);
 
         // Conecta log de eventos
         controller.setLogConsumer(eventLogPane::addLines);
