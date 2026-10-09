@@ -65,8 +65,8 @@ public final class Theme {
     /** Receptor (RX): #458588 */
     public static final String RX_COLOR = "#458588";
 
-    /** Pacote: #d3869b */
-    public static final String PACKET_COLOR = "#d3869b";
+    /** Pacote: #83a598 (azul Gruvbox) */
+    public static final String PACKET_COLOR = "#83a598";
 
     /** Grade de fundo: #2d2c2b */
     public static final String GRID = "#2d2c2b";

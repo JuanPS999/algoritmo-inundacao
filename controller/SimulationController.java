@@ -253,6 +253,10 @@ public class SimulationController {
             controlPanel.setStatus("Escolha transmissor e receptor diferentes.");
             return;
         }//fim do if
+        // Obter semente do painel (gera automaticamente se vazio) e propagar para replay
+        long effectiveSeed = controlPanel.getSeed();
+        this.seed = effectiveSeed;
+        controlPanel.setReplaySeed(effectiveSeed);
         timer.stop();
         int version = controlPanel.getVersion();
         showTtl = (version >= 3);
@@ -331,6 +335,10 @@ public class SimulationController {
                 controlPanel.setStatus("Escolha transmissor e receptor diferentes.");
                 return;
             }
+            // Obter semente do painel (gera automaticamente se vazio) e propagar para replay
+            long effectiveSeed = controlPanel.getSeed();
+            this.seed = effectiveSeed;
+            controlPanel.setReplaySeed(effectiveSeed);
             int version = controlPanel.getVersion();
             showTtl = (version >= 3);
             long windowMs = controlPanel.getWindowMs();
