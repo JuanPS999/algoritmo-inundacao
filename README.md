@@ -179,3 +179,8 @@ timeout 8 ./run.sh   # codigo 124 sem excecao = sucesso
 - Indentacao 2 espacos, chaves K&R, comentario de fechamento
 - Linhas <= 80 colunas, sem acentos em comentarios e Strings
 - Java 8 apenas (sem var, records, List.of, text blocks, etc.)
+
+
+<p align="center">
+  <sub><i>Per Aspera Ad Astra.</i></sub>
+</p>
