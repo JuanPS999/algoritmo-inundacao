@@ -200,7 +200,8 @@ impede o encaminhamento. Ignora TTL.
 Strategy3Ttl (V3)
 Como a V2, e antes de reenviar faz ttl = ttl - 1; se ttl <= 0, descarta.
 A checagem de entrega vem antes do descarte (tratado no Simulator, no momento
-da chegada). O TTL padrao pode ser calculado a partir do diametro do grafo.
+da chegada). TTL e definido via spinner na interface grafica (padrao: 3). O usuario
+pode alterar o TTL durante a simulacao.
 
 Strategy4Custom (V4)
 Flooding com deduplicacao por janela de tempo por no.
@@ -280,9 +281,68 @@ e agendada. O peso/metrica do backbone nao representa a latencia.
 A seed permite reproduzir a mesma sequencia pseudoaleatoria.
 
 O tempo da simulacao e virtual. Na GUI, o AnimationTimer converte tempo real em
+
+O tempo da simulacao e virtual. Na GUI, o AnimationTimer converte tempo real em
 avanco de tempo virtual conforme a velocidade selecionada.
 
-5. Entrega no destino
+5. Execucao em Lote
+--------------------
+
+O fluxo de execucao em lote atravessas as seguintes componentes:
+
+- **SimulationController**: Recebe o evento "Executar N vezes" do ControlPanel.
+  Cria um Task<Void> que itera sobre versoes 1 a 4.
+  Para cada versao, executa 'count' simulacoes com sementes baseSeed + i.
+  Atualiza progresso via Platform.runLater na aba RESULTS.
+  Registra resultados na ResultsTable (samples validas, abortadas, inalcançaveis).
+  O BatchRunner executa o trabalho em thread daemon, nao bloqueando a GUI.
+
+- **BatchRunner**: Executa multiplas simulacoes em lote (sem JavaFX).
+  Recebe: graph, versao, sourceId, destinationId, ttl, count, baseSeed, windowMs.
+  Para cada iteracao i: usa seed = baseSeed + i.
+  Classifica resultados: sample (destino atingido), aborted (limite 2M pacotes),
+  unreachable (fila vazia).
+  Devolve um BatchResult imutavel com lists de samples, aborted count, unreachable count.
+
+- **ResultsTable**: Recebe resultados do BatchController e preenche as colunas:
+  - Versao, Ultima, N (quantidade validas), Media, Desvio.
+  - Conta tambem abortadas e inalcançaveis separadamente.
+  - Suporta escala logaritmica (setLogScale(true/false)).
+  - Cada linha representa uma versao; os dados sao agregados das execucoes validas.
+
+- **GraphPane**: Atualiza a visualizacao durante o lote (opcional),
+  mostrando pacotes em transito conforme o simulador avanca.
+
+- **WindowSweep**: Ferramenta de teste na utilitario.
+  Executa varredura das versoes V1 a V4 com diferentes valores de windowMs.
+  Para V4, testa janelas: 0, 250, 500, 1000, 1500, 2000, 5000 ms.
+  Exibe resultados comparativos do efeito da deduplicacao temporal.
+  Relaciona-se com o parâmetro windowMs do StrategyFactory.create(version, windowMs).
+
+6. Sementes e Reprodutibilidade
+--------------------------------
+
+- O LatencyProvider aceita uma semente opcional.
+- Semente base fixa: nas execucoes em lote, cada iteracao usa baseSeed + i.
+- Mesmos parametros (backbone, origem, destino, estrategia, TTL, semente)
+  geram comportamento deterministico.
+- Alteracoes na ordem de eventos ou transmisssoes podem alterar a
+  sequencia pseudoaleatoria e, portanto, os resultados.
+
+7. WindowSweep
+--------------
+
+Ferramenta de varredura para a estrategia V4 com diferentes janelas temporais.
+
+- Executa simulacoes V1 a V4 para comparar o efeito da deduplicacao.
+- Windows testadas (windowMs em ms): 0, 250, 500, 1000, 1500, 2000, 5000.
+- windowMs = 0 deve ser equivalente a V3 (sem deduplicacao).
+- Para cada janela, reporta-se: quantidade de execucoes validas, snapshots,
+  media e desvio-padrao.
+- Nao cria timers/eventos especificos para expiracao.
+- Entradas expiradas sao removidas somente durante consultas.
+
+8. Entrega no destino
 ---------------------
 
 Quando um pacote chega ao destino:
@@ -294,7 +354,7 @@ Quando um pacote chega ao destino:
 
 O snapshot representa o numero de pacotes observado na primeira chegada ao destino.
 
-6. Estrategias de inundacao
+9. Estrategias de inundacao
 ----------------------------
 
 V1 - Todas as interfaces
@@ -312,7 +372,7 @@ Usa a logica da V2 e adiciona TTL:
 - Encaminha se ainda puder ser encaminhado (TTL > 0);
 - Reconhece a entrega no destino antes do descarte por TTL.
 
-O TTL padrao pode ser calculado a partir do diametro do grafo em saltos (BFS).
+TTL e definido via spinner na interface grafica (padrao: 3). O usuario pode alterar o TTL durante a simulacao.
 
 V4 - Deduplicacao temporal
 Usa a logica da V3 e adiciona deduplicacao temporal por no.
@@ -337,7 +397,7 @@ A origem e registrada como primeira observacao no instante zero.
 
 Com windowMs = 0, V4 deve ser equivalente a V3.
 
-7. Estrutura de arquivos
+10. Estrutura de arquivos
 -------------------------
 
 model/
@@ -374,7 +434,7 @@ util/
     GraphInfo.java            - Imprime grafo e diametro
     NodeLabelUtil.java        - Conversao id <-> rotulo
 
-8. Separacao de responsabilidades
+11. Separacao de responsabilidades
 -----------------------------------
 
 View
@@ -414,7 +474,7 @@ Responsavel por:
 - Varreduras experimentais;
 - Informacoes auxiliares.
 
-9. Reprodutibilidade
+12. Reprodutibilidade
 ---------------------
 
 As simulacoes aceitam seed.
@@ -430,7 +490,7 @@ Com os mesmos:
 
 O comportamento deterministico esperado deve ser preservado.
 
-10. Regras de compatibilidade
+13. Regras de compatibilidade
 
 O projeto deve permanecer compativel com:
 

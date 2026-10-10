@@ -102,12 +102,48 @@ A;B;PESO
 - Execucoes validas (destino atingido) vao para a tabela (Media, Desvio).
 - Abortadas (limite 2M pacotes) e inalcançaveis (fila vazia) ficam FORA da media.
 - Botao desabilitado durante o lote; reabilitado ao fim (sucesso ou erro).
++- **Progresso**: O lote roda em thread de fundo e atualiza a progressao na barra de status da aba RESULTS.
++- **Cancelamento**: Clique em "Cancelar lote" para interromper entre execucoes. O estado e restaurado ao cancelamento.
 
-## Tempo Virtual
-- Nucleo pull-based: PriorityQueue por instante de chegada, desempate FIFO.
-- Sem Thread.sleep, sem thread por pacote/roteador.
-- Latencia por transmissao: inteiro aleatorio [1, 500] ms (peso da aresta NAO influencia).
-- TTL default = diametro do grafo em saltos (BFS), editavel na GUI.
+## Resultados (GUI)
+- **Tabela V1-V4**: Cada linha corresponde a uma versao. Colunas:
+  - **Ultima**: Snapshot da ultima execucao valida.
+  - **N**: Quantidade de execucoes validas (destino atingido).
+  - **Media**: Media aritmetica dos snapshots das execucoes validas.
+  - **Desvio**: Desvio padrao amostral dos snapshots.
+  - Apenas execucoes que atingiram o destino sao contabilizadas na Media e Desvio.
+  - Abortadas (limite 2M pacotes) e inalcançaveis (fila vazia) ficam fora desses calculos.
+- **Grafico RESULTS**: Barra horizontal por versao (V1 a V4).
+  - Clique no icone de lupa para alternar **Escala Logaritmica** (on/off).
+  - Em escala log, valores pequenos ficam mais distinguiveis.
+  - O chart usa a classe Statistics para calcular media e desvio-padrao.
+
+## Sementes e Reprodutibilidade
+- **Console**: Passar a semente como ultimo argumento (`java -cp build util.ConsoleRunner 3 1 4 3 42`).
+- **GUI**: Digite a semente no campo "Semente" no painel de controles. A mesma semente com os mesmos parametros (backbone, origem, destino, estrategia, TTL) reproduz o mesmo comportamento.
+- **Lote**: Semente base + i para cada iteracao (baseSeed, baseSeed+1, ..., baseSeed+n-1).
+- **Reprodutibilidade**: Com os mesmos parametros (backbone, origem, destino, estrategia, TTL, semente), as simulacoes sao deterministas. A ordem das chamadas ao gerador aleatorio nao deve ser alterada.
+
+## WindowSweep (Varredura de Janelas V4)
+- **Finalidade**: Testar o efeito da janela temporal (windowMs) na deduplicacao V4.
+- **Como executar**: `java -cp build util.WindowSweep <backbone> <origem> <destino> <ttl> <sementeBase>`
+- **Windows testadas**: 0, 250, 500, 1000, 1500, 2000, 5000 (ms).
+- **Resultado**: Para cada janela, conta-se quantas execucoes atingiram o destino e o snapshot medio. Use para comparar o efeito da deduplicacao V4.
++- Cada execucao usa uma nova instancia da Strategy4Custom com a janela especificada.
++- windowMs = 0 deve gerar resultados equivalentes a V3 (nenhuma deduplicacao).
++- Os resultados permitem comparar o impacto da janela no numero de pacotes finais e na reprodutibilidade.
+
+## Testes com Timeout (obrigatorio)
+```bash
+# ConsoleRunner (deve terminar)
+timeout -k 2 20 java -Xmx512m -cp build util.ConsoleRunner 3 1 4 3 42
+
+# BatchConsole (30 execucoes x 4 versoes)
+timeout -k 2 60 java -Xmx512m -cp build util.BatchConsole 30 1 4 3 42
+
+# GUI (apenas verifica inicio)
+timeout 8 ./run.sh   # codigo 124 sem excecao = sucesso
+```
 
 ## Estrutura MVC
 ```
