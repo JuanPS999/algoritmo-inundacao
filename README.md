@@ -159,6 +159,7 @@ view/                   FloodingApp, GraphPane, ControlPanel,
                         ResultsTable
 util/                   BackboneLoader, ConsoleRunner, BatchConsole,
                         Statistics, GraphInfo, WindowSweep, NodeLabelUtil
+```
 
 ## Testes com Timeout (obrigatorio)
 ```bash
